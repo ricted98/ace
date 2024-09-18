@@ -28,7 +28,7 @@ SEEDS=(0)
 
 call_vsim() {
     for seed in ${SEEDS[@]}; do
-        echo "run -all" | $VSIM -sv_seed $seed "$@" | tee vsim.log 2>&1
+        $VSIM -do "log -r *; onfinish stop; run -all; view wave;" -sv_seed $seed "$@" | tee vsim.log 2>&1
         grep "Errors: 0," vsim.log
     done
 }
@@ -45,7 +45,7 @@ exec_test() {
                     for Atop in 0 1  ; do
                         for Exclusive in 0 1; do
                             for UniqueIds in 0 1 ; do
-                                call_vsim tb_ace_ccu_top -gTbNumMst=$NumMst -gTbNumSlv=$NumSlv \
+                                call_vsim -voptargs="+acc" tb_ace_ccu_top -gTbNumMst=$NumMst -gTbNumSlv=$NumSlv \
                                         -gTbEnAtop=$Atop -gTbEnExcl=$Exclusive \
                                         -gTbUniqueIds=$UniqueIds
                             done
