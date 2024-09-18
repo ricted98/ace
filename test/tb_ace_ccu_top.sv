@@ -307,7 +307,7 @@ module tb_ace_ccu_top #(
   // DUT
   //-----------------------------------
   ace_ccu_top_intf #(
-    .AXI_USER_WIDTH ( AxiUserWidth  ),
+    //.AXI_USER_WIDTH ( AxiUserWidth  ),
     .Cfg            ( ccu_cfg      )
   ) i_ccu_dut (
     .clk_i                  ( clk     ),
