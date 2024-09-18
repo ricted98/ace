@@ -225,6 +225,10 @@ interface ACE_BUS_DV #(
   `ifndef VERILATOR
   // Single-Channel Assertions: Signals including valid must not change between valid and handshake.
   // AW
+  // For AxCACHE == 0b000x, AxDOMAIN cannot be 00, 01, 10
+  assert property (@(posedge clk_i) (aw_valid && aw_ready && (aw_cache[3:1] == '0) && !(aw_domain inside {'b00, 'b01, 'b10})));
+  // For AxCACHE == 0b111x, AxDOMAIN cannot be 11
+  assert property (@(posedge clk_i) (aw_valid && aw_ready && (aw_cache[3:1] == '1) && !(aw_domain inside {'b11})));
   assert property (@(posedge clk_i) (aw_valid && !aw_ready |=> $stable(aw_id)));
   assert property (@(posedge clk_i) (aw_valid && !aw_ready |=> $stable(aw_addr)));
   assert property (@(posedge clk_i) (aw_valid && !aw_ready |=> $stable(aw_len)));
@@ -250,6 +254,10 @@ interface ACE_BUS_DV #(
   assert property (@(posedge clk_i) ( b_valid && ! b_ready |=> $stable(b_user)));
   assert property (@(posedge clk_i) ( b_valid && ! b_ready |=> b_valid));
   // AR
+  // For AxCACHE == 0b000x, AxDOMAIN cannot be 00, 01, 10
+  assert property (@(posedge clk_i) (ar_valid && ar_ready && (ar_cache[3:1] == '0) && !(ar_domain inside {'b00, 'b01, 'b10})));
+  // For AxCACHE == 0b111x, AxDOMAIN cannot be 11
+  assert property (@(posedge clk_i) (ar_valid && ar_ready && (ar_cache[3:1] == '1) && !(ar_domain inside {'b11})));
   assert property (@(posedge clk_i) (ar_valid && !ar_ready |=> $stable(ar_id)));
   assert property (@(posedge clk_i) (ar_valid && !ar_ready |=> $stable(ar_addr)));
   assert property (@(posedge clk_i) (ar_valid && !ar_ready |=> $stable(ar_len)));
