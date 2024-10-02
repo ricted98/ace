@@ -1,6 +1,8 @@
 module ace_ccu_snoop_interconnect import ace_pkg::*; #(
     parameter int unsigned  NumInp       = 0,
     parameter int unsigned  NumOup       = 0,
+    parameter bit           BufferReq    = 1,
+    parameter bit           BufferResp   = 1,
     parameter type          ac_chan_t    = logic,
     parameter type          cr_chan_t    = logic,
     parameter type          cd_chan_t    = logic,
@@ -51,8 +53,10 @@ cr_chan_t [NumInp-1:0][NumOup-1:0] cr_chans_rev;
 logic     [NumInp-1:0][NumOup-1:0] cd_valids_rev, cd_readies_rev;
 cd_chan_t [NumInp-1:0][NumOup-1:0] cd_chans_rev;
 
-logic [NumOup-1:0] to_arb_sel_valid, from_arb_sel_ready;
-logic [NumOup-1:0] fork_ac_valids, fork_ac_readies;
+logic     [NumOup-1:0] to_arb_sel_valid, from_arb_sel_ready;
+logic     [NumOup-1:0] ac_valids, ac_readies;
+ac_chan_t [NumOup-1:0] ac_chans;
+inp_idx_t [NumOup-1:0] ac_idx;
 
 sel_mask_t ac_sel;
 logic      ac_sel_valid, ac_sel_ready;
@@ -124,19 +128,57 @@ always_comb begin
         from_arb_sel_ready[arb_ac_idx] = 1'b1;
 end
 
-stream_fork_dynamic #(
-  .N_OUP (NumOup)
-) i_ac_fork (
-    .clk_i,
-    .rst_ni,
-    .valid_i     (arb_ac_valid),
-    .ready_o     (arb_ac_ready),
-    .sel_i       (ac_sel),
-    .sel_valid_i (ac_sel_valid),
-    .sel_ready_o (ac_sel_ready),
-    .valid_o     (fork_ac_valids),
-    .ready_i     (fork_ac_readies)
-);
+if (BufferReq) begin
+    typedef struct packed {
+        inp_idx_t idx;
+        ac_chan_t ac;
+    } ac_fifo_entry_t;
+
+    ac_fifo_entry_t ac_fifo_in;
+    ac_fifo_entry_t [NumOup-1:0] ac_fifo_out;
+
+    assign ac_fifo_in.idx = arb_ac_idx;
+    assign ac_fifo_in.ac  = arb_ac_chan;
+    for (genvar i = 0; i < NumOup; i++) begin
+        assign ac_chans[i] = ac_fifo_out[i].ac;
+        assign ac_idx[i]   = ac_fifo_out[i].idx;
+    end
+
+    ace_ccu_multi_read_stream_fifo #(
+        .Depth     (4),
+        .ReadPorts (NumOup),
+        .data_t    (ac_fifo_entry_t)
+    ) i_ac_fifo (
+        .clk_i,
+        .rst_ni,
+        .valid_i     (arb_ac_valid),
+        .ready_o     (arb_ac_ready),
+        .data_i      (ac_fifo_in),
+        .sel_i       (ac_sel),
+        .sel_valid_i (ac_sel_valid),
+        .sel_ready_o (ac_sel_ready),
+        .valid_o     (ac_valids),
+        .ready_i     (ac_readies),
+        .data_o      (ac_fifo_out)
+    );
+end else begin
+    stream_fork_dynamic #(
+    .N_OUP (NumOup)
+    ) i_ac_fork (
+        .clk_i,
+        .rst_ni,
+        .valid_i     (arb_ac_valid),
+        .ready_o     (arb_ac_ready),
+        .sel_i       (ac_sel),
+        .sel_valid_i (ac_sel_valid),
+        .sel_ready_o (ac_sel_ready),
+        .valid_o     (ac_valids),
+        .ready_i     (ac_readies)
+    );
+
+    assign ac_chans = {NumOup{arb_ac_chan}};
+    assign ac_idx   = {NumOup{arb_ac_idx}};
+end
 
 for (genvar i = 0; i < NumOup; i++) begin : gen_oup
 
@@ -144,22 +186,23 @@ for (genvar i = 0; i < NumOup; i++) begin : gen_oup
     ace_ccu_snoop_port #(
         .NumInp                (NumInp),
         .NumOup                (NumOup),
+        .BufferResp            (BufferResp),
         .ac_chan_t             (ac_chan_t),
         .cr_chan_t             (cr_chan_t),
         .cd_chan_t             (cd_chan_t)
     ) i_snoop_port (
         .clk_i,
         .rst_ni,
-        .inp_ac_valid_i        (fork_ac_valids[i]),
-        .inp_ac_ready_o        (fork_ac_readies[i]),
-        .inp_ac_chan_i         (arb_ac_chan),
+        .inp_ac_valid_i        (ac_valids[i]),
+        .inp_ac_ready_o        (ac_readies[i]),
+        .inp_ac_chan_i         (ac_chans[i]),
         .inp_cr_valids_o       (cr_valids[i]),
         .inp_cr_readies_i      (cr_readies[i]),
         .inp_cr_chans_o        (cr_chans[i]),
         .inp_cd_valids_o       (cd_valids[i]),
         .inp_cd_readies_i      (cd_readies[i]),
         .inp_cd_chans_o        (cd_chans[i]),
-        .inp_idx_i             (arb_ac_idx),
+        .inp_idx_i             (ac_idx[i]),
         .oup_ac_valid_o        (oup_ac_valids[i]),
         .oup_ac_ready_i        (oup_ac_readies[i]),
         .oup_ac_chan_o         (oup_ac_chans[i]),
