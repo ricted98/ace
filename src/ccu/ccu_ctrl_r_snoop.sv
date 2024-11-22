@@ -51,7 +51,13 @@ module ccu_ctrl_r_snoop #(
     /// Domain masks set for the current AR initiator
     input  domain_set_t                 domain_set_i,
     /// Ax mask to be used for the snoop request
-    output domain_mask_t                domain_mask_o
+    output domain_mask_t                domain_mask_o,
+    /// Request for lock on R mux
+    output logic                        r_mux_lock_req_o,
+    /// Request granted for lock on R mux
+    input  logic                        r_mux_lock_gnt_i,
+    /// Free lock on R mux
+    output logic                        r_mux_lock_free_o
 );
 
 // Indices for stream fork dynamic mask
@@ -66,6 +72,7 @@ typedef struct packed {
 
 // FSM states
 typedef enum logic [1:0] { SNOOP_RESP, WRITE_CD, READ_R, IGNORE_CD } r_fsm_t;
+typedef enum logic [1:0] { WAIT_FOR_LOCK_REQ, LOCK_REQ, LOCK } lock_fsm_t;
 
 logic cd_last_d, cd_last_q;
 logic aw_valid_d, aw_valid_q, ar_valid_d, ar_valid_q;
@@ -83,8 +90,10 @@ logic write_back, resp_shared, resp_dirty;
 slv_req_s slv_req, slv_req_holder;
 logic slv_req_fifo_not_full;
 logic slv_req_fifo_valid;
+logic get_lock, free_lock;
 logic pop_slv_req_fifo;
 r_fsm_t fsm_state_d, fsm_state_q;
+lock_fsm_t lock_fsm_d, lock_fsm_q;
 
 assign slv_req.ar         = slv_req_i.ar;
 assign slv_req.snoop_info = snoop_info_i;
@@ -111,6 +120,7 @@ end
 always_ff @(posedge clk_i, negedge rst_ni) begin
     if (!rst_ni) begin
         fsm_state_q  <= SNOOP_RESP;
+        lock_fsm_q   <= WAIT_FOR_LOCK_REQ;
         rresp_q[3:2] <= '0;
         cd_mask_q    <= '0;
         aw_valid_q   <= '0;
@@ -119,6 +129,7 @@ always_ff @(posedge clk_i, negedge rst_ni) begin
         r_last_q     <= '0;
     end else begin
         fsm_state_q  <= fsm_state_d;
+        lock_fsm_q   <= lock_fsm_d;
         rresp_q[3:2] <= rresp_d[3:2];
         cd_mask_q    <= cd_mask_d;
         aw_valid_q   <= aw_valid_d;
@@ -126,6 +137,33 @@ always_ff @(posedge clk_i, negedge rst_ni) begin
         cd_last_q    <= cd_last_d;
         r_last_q     <= r_last_d;
     end
+end
+
+// Lock for R mux
+always_comb begin
+    lock_fsm_d        = lock_fsm_q;
+    r_mux_lock_req_o  = 1'b0;
+    r_mux_lock_free_o = 1'b0;
+    case(lock_fsm_q)
+        WAIT_FOR_LOCK_REQ: begin
+            r_mux_lock_req_o = get_lock;
+            if (get_lock) begin
+                lock_fsm_d = r_mux_lock_gnt_i ? LOCK : LOCK_REQ;
+            end
+        end
+        LOCK_REQ: begin
+            r_mux_lock_req_o = 1'b1;
+            if (r_mux_lock_gnt_i) begin
+                lock_fsm_d = LOCK;
+            end
+        end
+        LOCK: begin
+            if (free_lock) begin
+                r_mux_lock_free_o = 1'b1;
+                lock_fsm_d = WAIT_FOR_LOCK_REQ;
+            end
+        end
+    endcase
 end
 
 // AC request
@@ -155,12 +193,12 @@ always_comb begin
     mst_req_o.aw.burst    = axi_pkg::BURST_WRAP;
     mst_req_o.aw.domain   = slv_req_holder.ar.domain;
     mst_req_o.aw.snoop    = ace_pkg::WriteBack;
-    mst_req_o.aw.lock     = 1'b0; // TODO
+    mst_req_o.aw.lock     = 1'b0;
     mst_req_o.aw.cache    = axi_pkg::CACHE_MODIFIABLE;
     mst_req_o.aw.prot     = slv_req_holder.ar.prot;
     mst_req_o.aw.qos      = slv_req_holder.ar.qos;
     mst_req_o.aw.region   = slv_req_holder.ar.region;
-    mst_req_o.aw.atop     = '0; // TODO
+    mst_req_o.aw.atop     = '0;
     mst_req_o.aw.user     = slv_req_holder.ar.user;
     mst_req_o.aw.bar      = '0;
     mst_req_o.aw.awunique = 1'b0;
@@ -202,6 +240,8 @@ always_comb begin
     cd_mask_valid        = 1'b1;
     arlen_counter_en     = 1'b0;
     pop_slv_req_fifo     = 1'b0;
+    get_lock             = 1'b0;
+    free_lock            = 1'b0;
 
     case(fsm_state_q)
         // Receive snoop response
@@ -212,6 +252,7 @@ always_comb begin
             arlen_counter_clear  = 1'b1;
             snoop_req_o.cr_ready = slv_req_fifo_valid;
             if (snoop_resp_i.cr_valid) begin
+                get_lock   = 1'b1;
                 rresp_d[2] = resp_dirty;
                 rresp_d[3] = resp_shared;
                 if (snoop_resp_i.cr_resp.DataTransfer) begin
@@ -267,6 +308,7 @@ always_comb begin
                 // If memory access, end on b handshake
                 fsm_state_d      = SNOOP_RESP;
                 cd_mask_d        = '0;
+                free_lock        = 1'b1;
                 pop_slv_req_fifo = 1'b1;
             end
             if (r_handshake && r_last) begin
@@ -276,6 +318,7 @@ always_comb begin
                 // Move forward after all CD data has come
                 fsm_state_d      = SNOOP_RESP;
                 cd_mask_d        = '0;
+                free_lock        = 1'b1;
                 pop_slv_req_fifo = 1'b1;
             end
         end
@@ -290,6 +333,7 @@ always_comb begin
             if (r_handshake && slv_resp_o.r.last) begin
                 fsm_state_d      = SNOOP_RESP;
                 cd_mask_d        = '0;
+                free_lock        = 1'b1;
                 pop_slv_req_fifo = 1'b1;
             end
         end

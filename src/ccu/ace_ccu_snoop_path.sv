@@ -1,5 +1,6 @@
 `include "ace/typedef.svh"
 `include "ace/assign.svh"
+`include "common_cells/assertions.svh"
 
 module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     parameter int unsigned NoRules         = 0,
@@ -39,13 +40,29 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     req_t  slv_read_req, slv_write_req;
     resp_t slv_read_resp, slv_write_resp;
 
+    logic r_mux_sel_d, r_mux_sel_q;
+    logic r_mux_lock_d, r_mux_lock_q;
+    logic r_fsm_lock_req, r_fsm_lock_gnt, r_fsm_lock_free;
+    logic w_fsm_lock_req, w_fsm_lock_gnt, w_fsm_lock_free;
+
     localparam WB_AXLEN  = DcacheLineWidth/AxiDataWidth-1;
     localparam WB_AXSIZE = $clog2(AxiDataWidth/8);
+
+    always_ff @(posedge clk_i, negedge rst_ni) begin
+        if (!rst_ni) begin
+            r_mux_sel_q  <= 1'b0;
+            r_mux_lock_q <= 1'b0;
+        end else begin
+            r_mux_sel_q  <= r_mux_sel_d;
+            r_mux_lock_q <= r_mux_lock_d;
+        end
+    end
 
     ///////////
     // SPLIT //
     ///////////
 
+    /*
     ace_rw_split #(
         .axi_req_t  (req_t),
         .axi_resp_t (resp_t)
@@ -59,6 +76,110 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_write_req_o  (slv_write_req),
         .mst_write_resp_i (slv_write_resp)
     );
+    */
+
+    // Assign Read channel structs
+    `ACE_ASSIGN_AR_STRUCT ( slv_read_req.ar , slv_req_i.ar     )
+
+    // Read AW and W channel data
+    assign slv_read_req.aw        = '0;
+    assign slv_read_req.w         = '0;
+
+
+    //--------------------------------------
+    // Read channel handshakes
+    //--------------------------------------
+
+    // Read AR channel handshake
+    assign slv_read_req.ar_valid  = slv_req_i.ar_valid;
+    assign slv_resp_o.ar_ready    = slv_read_resp.ar_ready;
+
+    // Read R channel handshake
+
+    // Read AW, W and B handshake
+    assign slv_read_req.aw_valid  = 1'b0;
+    assign slv_read_req.w_valid   = 1'b0;
+    assign slv_read_req.b_ready   = 1'b0;
+
+    // check for B never to be valid
+    `ASSERT_NEVER(mst_read_resp_b_valid, slv_read_resp.b_valid, clk_i, !rst_ni)
+
+    //--------------------------------------
+    // Write channel data
+    //--------------------------------------
+
+    // Assign Write channel structs
+    `ACE_ASSIGN_AW_STRUCT ( slv_write_req.aw , slv_req_i.aw       )
+    `AXI_ASSIGN_W_STRUCT  ( slv_write_req.w  , slv_req_i.w        )
+    `AXI_ASSIGN_B_STRUCT  ( slv_resp_o.b     , slv_write_resp.b )
+
+    // Write AR channel data
+    assign slv_write_req.ar       = '0;
+
+    assign w_fsm_lock_req = 1'b0;
+    always_comb begin
+        r_fsm_lock_gnt = 1'b0;
+        w_fsm_lock_gnt = 1'b0;
+        if (r_mux_lock_q) begin
+            if (r_mux_sel_q && r_fsm_lock_free) begin
+                if (w_fsm_lock_req) begin
+                    w_fsm_lock_gnt = 1'b1;
+                    r_mux_sel_d    = 1'b0;
+                end else begin
+                    r_mux_lock_d = 1'b0;
+                end
+            end else if (!r_mux_sel_q && w_fsm_lock_free) begin
+                if (r_fsm_lock_req) begin
+                    r_fsm_lock_gnt = 1'b1;
+                    r_mux_sel_d    = 1'b1;
+                end else begin
+                    r_mux_sel_d  = 1'b1;
+                    r_mux_lock_d = 1'b0;
+                end
+            end
+        end else begin
+            if (r_fsm_lock_req) begin
+                r_fsm_lock_gnt = 1'b1;
+                r_mux_lock_d   = 1'b1;
+                r_mux_sel_d    = 1'b1;
+            end else if (w_fsm_lock_req) begin
+                w_fsm_lock_gnt = 1'b1;
+                r_mux_lock_d   = 1'b1;
+                r_mux_sel_d    = 1'b0;
+            end
+        end
+    end
+
+    always_comb begin
+        if (r_mux_sel_q) begin
+            slv_resp_o.r_valid   = slv_read_resp.r_valid;
+            slv_read_req.r_ready = slv_req_i.r_ready;
+            `ACE_SET_R_STRUCT  ( slv_resp_o.r    , slv_read_resp.r  )
+        end else begin
+            slv_resp_o.r_valid    = slv_write_resp.r_valid;
+            slv_write_req.r_ready = slv_req_i.r_ready;
+            `ACE_SET_R_STRUCT  ( slv_resp_o.r    , slv_write_resp.r  )
+        end
+    end
+
+    //--------------------------------------
+    // Write channel handshakes
+    //--------------------------------------
+
+    // Write AR and R channel handshake
+    assign slv_write_req.ar_valid = 1'b0;
+
+    // Write AW channel handshake
+    assign slv_write_req.aw_valid = slv_req_i.aw_valid;
+    assign slv_resp_o.aw_ready    = slv_write_resp.aw_ready;
+
+    // Write W channel handshake
+    assign slv_write_req.w_valid  = slv_req_i.w_valid;
+    assign slv_resp_o.w_ready     = slv_write_resp.w_ready;
+
+    // Write B channel handshake
+    assign slv_resp_o.b_valid     = slv_write_resp.b_valid;
+    assign slv_write_req.b_ready  = slv_req_i.b_ready;
 
     ////////////////
     // WRITE PATH //
@@ -143,17 +264,20 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .AXSIZE              (WB_AXSIZE),
         .FIFO_DEPTH          (2)
     ) i_ccu_ctrl_r_snoop (
-        .clk_i         (clk_i),
-        .rst_ni        (rst_ni),
-        .slv_req_i     (slv_read_req),
-        .slv_resp_o    (slv_read_resp),
-        .snoop_info_i  (read_snoop_info),
-        .mst_req_o     (mst_reqs_o     [1]),
-        .mst_resp_i    (mst_resps_i    [1]),
-        .snoop_req_o   (snoop_reqs_o   [1]),
-        .snoop_resp_i  (snoop_resps_i  [1]),
-        .domain_set_i  (domain_set_i[read_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [1])
+        .clk_i             (clk_i),
+        .rst_ni            (rst_ni),
+        .slv_req_i         (slv_read_req),
+        .slv_resp_o        (slv_read_resp),
+        .snoop_info_i      (read_snoop_info),
+        .mst_req_o         (mst_reqs_o     [1]),
+        .mst_resp_i        (mst_resps_i    [1]),
+        .snoop_req_o       (snoop_reqs_o   [1]),
+        .snoop_resp_i      (snoop_resps_i  [1]),
+        .domain_set_i      (domain_set_i[read_rule_idx]),
+        .domain_mask_o     (snoop_masks_o  [1]),
+        .r_mux_lock_req_o  (r_fsm_lock_req),
+        .r_mux_lock_gnt_i  (r_fsm_lock_gnt),
+        .r_mux_lock_free_o (r_fsm_lock_free)
     );
 
 endmodule

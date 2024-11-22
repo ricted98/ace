@@ -51,7 +51,13 @@ module ccu_ctrl_wr_snoop #(
     /// Domain masks set for the current AW initiator
     input  domain_set_t                 domain_set_i,
     /// Ax mask to be used for the snoop request
-    output domain_mask_t                domain_mask_o
+    output domain_mask_t                domain_mask_o,
+    /// Request for lock on R mux
+    output logic                        r_mux_lock_req_o,
+    /// Request granted for lock on R mux
+    input  logic                        r_mux_lock_gnt_i,
+    /// Free lock on R mux
+    output logic                        r_mux_lock_free_o
 );
 
 // Data structure to store AW request and decoded snoop transaction
@@ -62,6 +68,7 @@ typedef struct packed {
 
 // FSM states
 typedef enum logic [1:0] { SNOOP_RESP, WRITE_CD, WRITE_W } wr_fsm_t;
+typedef enum logic [1:0] { WAIT_FOR_LOCK_REQ, LOCK_REQ, LOCK } lock_fsm_t;
 
 logic cd_last_d, cd_last_q;
 logic aw_valid_d, aw_valid_q;
@@ -72,9 +79,12 @@ logic ignore_cd_d, ignore_cd_q;
 slv_req_s slv_req, slv_req_holder;
 logic slv_req_fifo_not_full;
 logic slv_req_fifo_valid;
+logic get_lock, free_lock;
+logic atop_d, atop_q;
 logic pop_slv_req_fifo;
 logic write_back_source; // 0 - CD, 1 - Cache
 wr_fsm_t fsm_state_d, fsm_state_q;
+lock_fsm_t lock_fsm_d, lock_fsm_q;
 
 
 assign slv_req.aw        = slv_req_i.aw;
@@ -93,13 +103,42 @@ always_ff @(posedge clk_i, negedge rst_ni) begin
         w_last_q    <= 1'b0;
         cd_last_q   <= 1'b0;
         ignore_cd_q <= 1'b0;
+        atop_q      <= 1'b0;
     end else begin
         fsm_state_q <= fsm_state_d;
         aw_valid_q  <= aw_valid_d;
         w_last_q    <= w_last_d;
         cd_last_q   <= cd_last_d;
         ignore_cd_q <= ignore_cd_d;
+        atop_q      <= atop_d;
     end
+end
+
+// Lock for R mux
+always_comb begin
+    lock_fsm_d        = lock_fsm_q;
+    r_mux_lock_req_o  = 1'b0;
+    r_mux_lock_free_o = 1'b0;
+    case(lock_fsm_q)
+        WAIT_FOR_LOCK_REQ: begin
+            r_mux_lock_req_o = get_lock;
+            if (get_lock) begin
+                lock_fsm_d = r_mux_lock_gnt_i ? LOCK : LOCK_REQ;
+            end
+        end
+        LOCK_REQ: begin
+            r_mux_lock_req_o = 1'b1;
+            if (r_mux_lock_gnt_i) begin
+                lock_fsm_d = LOCK;
+            end
+        end
+        LOCK: begin
+            if (free_lock) begin
+                r_mux_lock_free_o = 1'b1;
+                lock_fsm_d = WAIT_FOR_LOCK_REQ;
+            end
+        end
+    endcase
 end
 
 // AC request
@@ -147,6 +186,7 @@ always_comb begin
     w_last_d             = w_last_q;
     cd_last_d            = cd_last_q;
     ignore_cd_d          = ignore_cd_q;
+    atop_d               = atop_q;
     pop_slv_req_fifo     = 1'b0;
     write_back_source    = 1'b0;
     snoop_req_o.cr_ready = 1'b0;
@@ -160,11 +200,14 @@ always_comb begin
         // Receive snoop response and either write CD data or
         // move to writing to main memory
         SNOOP_RESP: begin
+            atop_d               = 1'b0;
             w_last_d             = 1'b0;
             cd_last_d            = 1'b0;
             ignore_cd_d          = 1'b0;
             snoop_req_o.cr_ready = slv_req_fifo_valid;
             if (snoop_resp_i.cr_valid) begin
+                get_lock = slv_req_holder.aw.atop[5];
+                atop_d   = |slv_req_holder.aw.atop;
                 if (snoop_resp_i.cr_resp.DataTransfer) begin
                     // If received data is erronous or clean,
                     // we receive CD but do not write it
