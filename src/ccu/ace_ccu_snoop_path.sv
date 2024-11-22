@@ -30,7 +30,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     input  domain_set_t  [NoRules-1:0] domain_set_i,
     output snoop_req_t   [1:0]         snoop_reqs_o,
     input  snoop_resp_t  [1:0]         snoop_resps_i,
-    output domain_mask_t [1:0]         snoop_masks_o
+    output domain_mask_t [1:0]         snoop_masks_o,
+    output domain_mask_t [1:0]         snoop_idx_o
 );
 
     localparam RuleIdBits = $clog2(NoRules);
@@ -105,7 +106,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .snoop_req_o   (snoop_reqs_o   [0]),
         .snoop_resp_i  (snoop_resps_i  [0]),
         .domain_set_i  (domain_set_i[write_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [0])
+        .domain_mask_o (snoop_masks_o  [0]),
+        .mst_idx_o     (snoop_idx_o    [0])
     );
 
     ///////////////
@@ -153,7 +155,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .snoop_req_o   (snoop_reqs_o   [1]),
         .snoop_resp_i  (snoop_resps_i  [1]),
         .domain_set_i  (domain_set_i[read_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [1])
+        .domain_mask_o (snoop_masks_o  [1]),
+        .mst_idx_o     (snoop_idx_o    [1])
     );
 
 endmodule

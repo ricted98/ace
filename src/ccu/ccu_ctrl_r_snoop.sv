@@ -22,6 +22,8 @@ module ccu_ctrl_r_snoop #(
     parameter type domain_set_t       = logic,
     /// Domain mask type
     parameter type domain_mask_t      = logic,
+    /// Master index type
+    parameter type mst_idx_t          = logic,
     /// Fixed value for AXLEN for write back
     parameter int unsigned AXLEN      = 0,
     /// Fixed value for AXSIZE for write back
@@ -51,7 +53,9 @@ module ccu_ctrl_r_snoop #(
     /// Domain masks set for the current AR initiator
     input  domain_set_t                 domain_set_i,
     /// Ax mask to be used for the snoop request
-    output domain_mask_t                domain_mask_o
+    output domain_mask_t                domain_mask_o,
+    /// One-hot encoding of the index of the cached master
+    output mst_idx_t                    mst_idx_o
 );
 
 // Indices for stream fork dynamic mask
@@ -338,6 +342,7 @@ stream_fork_dynamic #(
 // Note: this signal should flow along with AC
 always_comb begin
     domain_mask_o = '0;
+    mst_idx_o     = domain_set_i.initiator;
     case (slv_req_i.ar.domain)
       NonShareable:   domain_mask_o = 0;
       InnerShareable: domain_mask_o = domain_set_i.inner;

@@ -13,6 +13,7 @@ module ace_ccu_top import ace_pkg::*;
   parameter int unsigned DcacheLineWidth = 0,
   parameter int unsigned CmAddrBase      = $clog2(DcacheLineWidth >> 3),
   parameter int unsigned CmAddrWidth     = 8,
+  parameter int unsigned AmAddrWidth     = 8,
   parameter type slv_ar_chan_t           = logic,
   parameter type slv_aw_chan_t           = logic,
   parameter type slv_b_chan_t            = logic,
@@ -32,7 +33,8 @@ module ace_ccu_top import ace_pkg::*;
   parameter type snoop_req_t             = logic,
   parameter type snoop_resp_t            = logic,
   parameter type domain_mask_t           = `DOMAIN_MASK_T(NoSlvPorts),
-  parameter type domain_set_t            = `DOMAIN_SET_T
+  parameter type domain_set_t            = `DOMAIN_SET_T,
+  parameter type mst_idx_t               = domain_mask_t
 ) (
   input  logic                         clk_i,
   input  logic                         rst_ni,
@@ -46,6 +48,7 @@ module ace_ccu_top import ace_pkg::*;
 );
 
   typedef logic [CmAddrWidth-1:0] cm_idx_t;
+  typedef logic [AmAddrWidth-1:0] am_idx_t;
 
   // Parameters to be used for testing/debugging
   // Otherwise assume they are hardcoded
@@ -58,6 +61,7 @@ module ace_ccu_top import ace_pkg::*;
 
   // To snoop interconnect
   domain_mask_t [NoSnoopPorts-1:0] snoop_sel;
+  mst_idx_t     [NoSnoopPorts-1:0] snoop_idx;
   snoop_req_t   [NoSnoopPorts-1:0] snoop_reqs;
   snoop_resp_t  [NoSnoopPorts-1:0] snoop_resps;
 
@@ -68,6 +72,10 @@ module ace_ccu_top import ace_pkg::*;
   logic                       cm_snoop_ready;
   logic                       cm_snoop_stall;
   cm_idx_t                    cm_snoop_addr;
+
+  // Atomic management signals
+  mst_idx_t am_ex_id;
+  am_idx_t  am_ex_addr;
 
   ace_ccu_master_path #(
     .AxiAddrWidth      (AxiAddrWidth),
@@ -98,7 +106,8 @@ module ace_ccu_top import ace_pkg::*;
     .snoop_req_t       (snoop_req_t ),
     .snoop_resp_t      (snoop_resp_t),
     .domain_set_t      (domain_set_t),
-    .domain_mask_t     (domain_mask_t)
+    .domain_mask_t     (domain_mask_t),
+    .mst_idx_t         (domain_mask_t)
   ) i_master_path (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
@@ -110,6 +119,7 @@ module ace_ccu_top import ace_pkg::*;
     .mst_resp_i        (mst_resp_i),
     .domain_set_i      (domain_set_i),
     .snoop_masks_o     (snoop_sel),
+    .snoop_idx_o       (snoop_idx),
     .cm_req_o          (cm_x_req),
     .cm_addr_o         (cm_x_addr)
   );
@@ -127,11 +137,13 @@ module ace_ccu_top import ace_pkg::*;
     .cr_chan_t    (snoop_cr_t),
     .cd_chan_t    (snoop_cd_t),
     .snoop_req_t  (snoop_req_t),
-    .snoop_resp_t (snoop_resp_t)
+    .snoop_resp_t (snoop_resp_t),
+    .mst_idx_t    (domain_mask_t)
   ) i_snoop_interconnect (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
     .inp_sel_i         (snoop_sel),
+    .inp_idx_i         (snoop_idx),
     .inp_req_i         (snoop_reqs),
     .inp_resp_o        (snoop_resps),
     .oup_req_o         (snoop_req_o),
@@ -139,7 +151,8 @@ module ace_ccu_top import ace_pkg::*;
     .cm_valid_o        (cm_snoop_valid),
     .cm_ready_o        (cm_snoop_ready),
     .cm_addr_o         (cm_snoop_addr),
-    .cm_stall_i        (cm_snoop_stall)
+    .cm_stall_i        (cm_snoop_stall),
+    .am_ex_id_o        (am_ex_id)
   );
 
   ace_ccu_conflict_manager #(
@@ -157,6 +170,17 @@ module ace_ccu_top import ace_pkg::*;
     .cm_snoop_stall_o (cm_snoop_stall),
     .cm_x_req_i       (cm_x_req),
     .cm_x_addr_i      (cm_x_addr)
+  );
+
+  ace_ccu_atomic_manager #(
+    .AmIdxWidth(CmAddrWidth)
+  ) i_atomic_manager (
+    .clk_i,
+    .rst_ni,
+    .am_ex_req_i  (cm_snoop_valid),
+    .am_ex_type_i (0), // TODO
+    .am_ex_addr_i (am_ex_addr),
+    .am_ex_id_i   (am_ex_id)
   );
 
 endmodule
