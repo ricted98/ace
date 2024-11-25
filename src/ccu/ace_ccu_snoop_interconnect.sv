@@ -33,18 +33,16 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
     output snoop_req_t  [NumOup-1:0] oup_req_o,
     input  snoop_resp_t [NumOup-1:0] oup_resp_i,
 
+    input  logic [NumInp-1:0] excl_load_i,
+    input  logic [NumInp-1:0] excl_store_i,
+    output logic [NumInp-1:0] excl_resp_o,
+
     output  logic                    cm_valid_o,
     output  logic                    cm_ready_o,
     output  cm_addr_t                cm_addr_o,
     input   logic                    cm_stall_i,
-    output  logic                    am_ex_valid_o,
-    output  logic                    am_ex_ready_o,
-    output  am_addr_t                am_ex_addr_o,
-    /// 0 - Exclusive Load, 1 - Exclusive Store
-    output  logic                    am_ex_type_o,
-    /// One-hot encoding of the initiator
-    output  oup_sel_t                am_ex_id_o,
-    input   logic                    am_ex_okay_i
+
+    input logic [NumInp/2-1:0]
 );
 
     typedef logic [$clog2(NumInp)-1:0] inp_idx_t;
@@ -52,7 +50,7 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
     typedef struct packed {
         oup_sel_t sel;
         inp_idx_t idx;
-        logic     ex_okay;
+        logic     excl_okay;
     } ctrl_t;
 
     logic     [NumInp-1:0] inp_ac_valids, inp_ac_readies;
@@ -61,6 +59,7 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
     cr_chan_t [NumInp-1:0] inp_cr_chans;
     logic     [NumInp-1:0] inp_cd_valids, inp_cd_readies;
     cd_chan_t [NumInp-1:0] inp_cd_chans;
+    logic     [NumInp-1:0] inp_excl_load, inp_excl_store;
 
     oup_sel_t [NumInp-1:0] inp_sel;
     mst_idx_t [NumInp-1:0] inp_idx;
@@ -75,10 +74,10 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
 
     logic      ac_valid, ac_ready;
     logic      oup_ac_valid, oup_ac_ready;
+    logic      oup_excl_load, oup_excl_store;
     ac_chan_t  ac_chan;
     mst_idx_t  ac_mst_idx;
     am_addr_t  am_ex_addr;
-    logic      ex_okay;
 
     logic  req_ctrl_valid, req_ctrl_ready;
     logic  resp_ctrl_valid, resp_ctrl_ready;
@@ -97,17 +96,23 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
                 ac_chan_t ac;
                 oup_sel_t sel;
                 mst_idx_t idx;
+                logic     excl_load;
+                logic     excl_store;
             } ac_fifo_entry_t;
 
             ac_fifo_entry_t ac_fifo_in, ac_fifo_out;
 
-            assign ac_fifo_in.ac  = inp_req_i[i].ac;
-            assign ac_fifo_in.sel = inp_sel_i[i];
-            assign ac_fifo_in.idx = inp_idx_i[i];
+            assign ac_fifo_in.ac         = inp_req_i[i].ac;
+            assign ac_fifo_in.sel        = inp_sel_i[i];
+            assign ac_fifo_in.idx        = inp_idx_i[i];
+            assign ac_fifo_in.excl_load  = excl_load_i[i];
+            assign ac_fifo_in.excl_store = excl_store_i[i];
 
-            assign inp_ac_chans[i] = ac_fifo_out.ac;
-            assign inp_sel[i]      = ac_fifo_out.sel;
-            assign inp_idx[i]      = ac_fifo_out.idx;
+            assign inp_ac_chans[i]   = ac_fifo_out.ac;
+            assign inp_sel[i]        = ac_fifo_out.sel;
+            assign inp_idx[i]        = ac_fifo_out.idx;
+            assign inp_excl_load[i]  = ac_fifo_out.excl_load;
+            assign inp_excl_store[i] = ac_fifo_out.excl_store;
 
             stream_fifo_optimal_wrap #(
                 .Depth  (2),
@@ -131,6 +136,8 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
             assign inp_ac_chans[i]        = inp_req_i[i].ac;
             assign inp_sel[i]             = inp_sel_i[i];
             assign inp_idx[i]             = inp_idx_i[i];
+            assign inp_excl_load[i]       = excl_load_i[i];
+            assign inp_excl_store[i]      = excl_store_i[i];
         end
         if (BufferInpResp) begin : gen_buffer_resp
             stream_fifo_optimal_wrap #(
@@ -144,10 +151,10 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
                 .usage_o    (),
                 .valid_i    (inp_cr_valids [i]),
                 .ready_o    (inp_cr_readies[i]),
-                .data_i     (inp_cr_chans  [i]),
+                .data_i     ({inp_cr_chans [i], cr_ctrl.excl_okay}),
                 .valid_o    (inp_resp_o[i].cr_valid),
                 .ready_i    (inp_req_i [i].cr_ready),
-                .data_o     (inp_resp_o[i].cr_resp)
+                .data_o     ({inp_resp_o[i].cr_resp, excl_resp_o[i]})
             );
             stream_fifo_optimal_wrap #(
                 .Depth  (4),
@@ -172,6 +179,7 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
             assign inp_cd_readies[i]      = inp_req_i[i].cd_ready;
             assign inp_resp_o[i].cd_valid = inp_cd_valids[i];
             assign inp_resp_o[i].cd       = inp_cd_chans[i];
+            assign excl_resp_o[i]         = cr_ctrl.excl_okay;
         end
     end
 
@@ -253,36 +261,41 @@ module ace_ccu_snoop_interconnect import ace_pkg::*; #(
         .ac_readies_o    (inp_ac_readies),
         .ac_chans_i      (inp_ac_chans),
         .ac_sel_i        (inp_sel),
+        .excl_load_i     (inp_excl_load),
+        .excl_store_i    (inp_excl_store),
         .ac_valid_o      (ac_valid),
         .ac_ready_i      (ac_ready),
         .ac_chan_o       (ac_chan),
         .ac_mst_idx_o    (ac_mst_idx),
+        .excl_load_o     (oup_excl_load),
+        .excl_store_o    (oup_excl_store),
         .ctrl_valid_o    (req_ctrl_valid),
         .ctrl_ready_i    (req_ctrl_ready),
         .ctrl_o          (req_ctrl)
     );
 
     ace_ccu_atomic_manager #(
-        .AmIdxWidth(CmAddrWidth),
-        .mst_idx_t (mst_idx_t)
+        .AmIdxWidth (AmAddrWidth),
+        .mst_idx_t  (mst_idx_t)
     ) i_atomic_manager (
         .clk_i,
         .rst_ni,
-        .am_ex_req_i  (ac_valid && ac_atomic),
-        .am_ex_type_i (0), // TODO
-        .am_ex_addr_i (am_ex_addr),
-        .am_ex_id_i   (am_ex_id),
-        .am_ex_okay_o (ex_okay)
+        .am_ex_load_i  (am_ex_load),
+        .am_ex_store_i (am_ex_store),
+        .am_ex_addr_i  (am_ex_addr),
+        .am_ex_id_i    (ac_mst_idx),
+        .am_ex_okay_o  (excl_okay)
     );
 
-    assign am_ex_id_o       = ac_mst_idx;
-    assign am_ex_addr       = ac_chan.addr[AmAddrBase+:AmAddrWidth];
-    assign cm_valid_o       = ac_valid;
-    assign cm_ready_o       = oup_ac_ready;
-    assign cm_addr_o        = ac_chan.addr[CmAddrBase+:CmAddrWidth];
-    assign ac_ready         = oup_ac_ready && !cm_stall_i;
-    assign oup_ac_valid     = ac_valid     && !cm_stall_i;
-    assign req_ctrl.ex_okay = ex_okay;
+    assign am_ex_addr         = ac_chan.addr[AmAddrBase+:AmAddrWidth];
+    assign am_ex_load         = ac_valid && oup_excl_load;
+    assign am_ex_store        = ac_valid && oup_excl_store;
+    assign cm_valid_o         = ac_valid;
+    assign cm_ready_o         = oup_ac_ready;
+    assign cm_addr_o          = ac_chan.addr[CmAddrBase+:CmAddrWidth];
+    assign ac_ready           = oup_ac_ready && !cm_stall_i;
+    assign oup_ac_valid       = ac_valid     && !cm_stall_i;
+    assign req_ctrl.excl_okay = excl_okay;
 
     stream_fifo_optimal_wrap #(
         .Depth  (2),

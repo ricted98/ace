@@ -74,6 +74,9 @@ module ace_ccu_top import ace_pkg::*;
   cm_idx_t                    cm_snoop_addr;
 
   // Atomic management signals
+  logic [2*NoGroups-1:0] excl_load;
+  logic [2*NoGroups-1:0] excl_store;
+  logic [2*NoGroups-1:0] excl_resp;
   mst_idx_t am_ex_id;
   am_idx_t  am_ex_addr;
 
@@ -121,7 +124,10 @@ module ace_ccu_top import ace_pkg::*;
     .snoop_masks_o     (snoop_sel),
     .snoop_idx_o       (snoop_idx),
     .cm_req_o          (cm_x_req),
-    .cm_addr_o         (cm_x_addr)
+    .cm_addr_o         (cm_x_addr),
+    .excl_load_o       (excl_load),
+    .excl_store_o      (excl_store),
+    .excl_resp_i       (excl_resp)
   );
 
   ace_ccu_snoop_interconnect #(
@@ -170,17 +176,6 @@ module ace_ccu_top import ace_pkg::*;
     .cm_snoop_stall_o (cm_snoop_stall),
     .cm_x_req_i       (cm_x_req),
     .cm_x_addr_i      (cm_x_addr)
-  );
-
-  ace_ccu_atomic_manager #(
-    .AmIdxWidth(CmAddrWidth)
-  ) i_atomic_manager (
-    .clk_i,
-    .rst_ni,
-    .am_ex_req_i  (cm_snoop_valid),
-    .am_ex_type_i (0), // TODO
-    .am_ex_addr_i (am_ex_addr),
-    .am_ex_id_i   (am_ex_id)
   );
 
 endmodule

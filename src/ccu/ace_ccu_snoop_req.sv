@@ -13,10 +13,14 @@ module ace_ccu_snoop_req #(
     input  ac_chan_t [NumInp-1:0]             ac_chans_i,
     input  logic     [NumInp-1:0][NumOup-1:0] ac_sel_i,
     input  mst_idx_t [NumInp-1:0]             ac_mst_idxs_i,
+    input  logic     [NumInp-1:0]             excl_load_i,
+    input  logic     [NumInp-1:0]             excl_store_i,
     output logic                              ac_valid_o,
     input  logic                              ac_ready_i,
     output ac_chan_t                          ac_chan_o,
     output mst_idx_t                          ac_mst_idx_o,
+    output logic                              excl_load_o,
+    output logic                              excl_store_o,
     output logic                              ctrl_valid_o,
     input  logic                              ctrl_ready_i,
     output ctrl_t                             ctrl_o
@@ -49,6 +53,8 @@ rr_arb_tree #(
 
 assign ac_sel       = ac_sel_i     [ac_idx];
 assign ac_mst_idx_o = ac_mst_idxs_i[ac_idx];
+assign excl_load_o  = excl_load_i  [ac_idx];
+assign excl_store_o = excl_store_i [ac_idx];
 
 stream_fork #(
     .N_OUP (2)

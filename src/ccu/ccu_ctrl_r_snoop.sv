@@ -50,6 +50,14 @@ module ccu_ctrl_r_snoop #(
     input  mst_snoop_resp_t             snoop_resp_i,
     /// Request channel towards snoop crossbar
     output mst_snoop_req_t              snoop_req_o,
+    /// Exclusive load access. Flows with snoop_req_o.
+    output logic                        excl_load_o,
+    /// Exclusive store access. Flows with snoop_req_o.
+    output logic                        excl_store_o,
+    /// Response to exclusive transaction.
+    /// Should flow with snoop_resp_i.cr_valid.
+    /// 1 - success, 0 - fail.
+    input  logic                        excl_resp_i,
     /// Domain masks set for the current AR initiator
     input  domain_set_t                 domain_set_i,
     /// Ax mask to be used for the snoop request
@@ -115,7 +123,7 @@ end
 always_ff @(posedge clk_i, negedge rst_ni) begin
     if (!rst_ni) begin
         fsm_state_q  <= SNOOP_RESP;
-        rresp_q[3:2] <= '0;
+        rresp_q      <= '0;
         cd_mask_q    <= '0;
         aw_valid_q   <= '0;
         ar_valid_q   <= '0;
@@ -123,7 +131,7 @@ always_ff @(posedge clk_i, negedge rst_ni) begin
         r_last_q     <= '0;
     end else begin
         fsm_state_q  <= fsm_state_d;
-        rresp_q[3:2] <= rresp_d[3:2];
+        rresp_q      <= rresp_d;
         cd_mask_q    <= cd_mask_d;
         aw_valid_q   <= aw_valid_d;
         ar_valid_q   <= ar_valid_d;
@@ -138,6 +146,8 @@ always_comb begin
     snoop_req_o.ac.addr  = slv_req.ar.addr;
     snoop_req_o.ac.snoop = slv_req.snoop_info.snoop_trs;
     snoop_req_o.ac.prot  = slv_req.ar.prot;
+    excl_load_o          = slv_req.snoop_info.excl_load;
+    excl_store_o         = slv_req.snoop_info.excl_store;
     slv_resp_o.ar_ready  = snoop_resp_i.ac_ready && slv_req_fifo_not_full;
 end
 
@@ -159,12 +169,12 @@ always_comb begin
     mst_req_o.aw.burst    = axi_pkg::BURST_WRAP;
     mst_req_o.aw.domain   = slv_req_holder.ar.domain;
     mst_req_o.aw.snoop    = ace_pkg::WriteBack;
-    mst_req_o.aw.lock     = 1'b0; // TODO
+    mst_req_o.aw.lock     = 1'b0;
     mst_req_o.aw.cache    = axi_pkg::CACHE_MODIFIABLE;
     mst_req_o.aw.prot     = slv_req_holder.ar.prot;
     mst_req_o.aw.qos      = slv_req_holder.ar.qos;
     mst_req_o.aw.region   = slv_req_holder.ar.region;
-    mst_req_o.aw.atop     = '0; // TODO
+    mst_req_o.aw.atop     = '0;
     mst_req_o.aw.user     = slv_req_holder.ar.user;
     mst_req_o.aw.bar      = '0;
     mst_req_o.aw.awunique = 1'b0;
@@ -192,7 +202,7 @@ always_comb begin
     cd_last_d            = cd_last_q;
     fsm_state_d          = fsm_state_q;
     cd_mask_d            = cd_mask_q;
-    rresp_d[3:2]         = rresp_q[3:2];
+    rresp_d              = rresp_q;
     arlen_counter_clear  = 1'b0;
     mst_req_o.w_valid    = 1'b0;
     mst_req_o.r_ready    = 1'b0;
@@ -216,6 +226,8 @@ always_comb begin
             arlen_counter_clear  = 1'b1;
             snoop_req_o.cr_ready = slv_req_fifo_valid;
             if (snoop_resp_i.cr_valid) begin
+                rresp_d[0] = excl_resp_i;
+                rresp_d[1] = 1'b0;
                 rresp_d[2] = resp_dirty;
                 rresp_d[3] = resp_shared;
                 if (snoop_resp_i.cr_resp.DataTransfer) begin
@@ -250,7 +262,7 @@ always_comb begin
         WRITE_CD: begin
             mst_req_o.w_valid  = cd_fork_valid[MEM_W_IDX] && !aw_valid_q;
             slv_resp_o.r.data  = snoop_resp_i.cd.data;
-            slv_resp_o.r.resp  = {rresp_q[3:2], 2'b0}; // something has to happen to 2 lsb when atomic
+            slv_resp_o.r.resp  = {rresp_q[3:2], 1'b0, excl_store_resp_i};
             slv_resp_o.r.last  = r_last;
             slv_resp_o.r_valid = cd_fork_valid[MST_R_IDX] && !r_last_q;
             arlen_counter_en   = r_handshake;
