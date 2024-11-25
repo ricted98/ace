@@ -13,7 +13,8 @@ module ace_ccu_top import ace_pkg::*;
   parameter int unsigned DcacheLineWidth = 0,
   parameter int unsigned CmAddrBase      = $clog2(DcacheLineWidth >> 3),
   parameter int unsigned CmAddrWidth     = 8,
-  parameter int unsigned AmAddrWidth     = 8,
+  parameter int unsigned AmAddrWidth     = CmAddrWidth,
+  parameter int unsigned AmAddrBase      = CmAddrBase,
   parameter type slv_ar_chan_t           = logic,
   parameter type slv_aw_chan_t           = logic,
   parameter type slv_b_chan_t            = logic,
@@ -78,7 +79,6 @@ module ace_ccu_top import ace_pkg::*;
   logic [2*NoGroups-1:0] excl_store;
   logic [2*NoGroups-1:0] excl_resp;
   mst_idx_t am_ex_id;
-  am_idx_t  am_ex_addr;
 
   ace_ccu_master_path #(
     .AxiAddrWidth      (AxiAddrWidth),
@@ -110,7 +110,7 @@ module ace_ccu_top import ace_pkg::*;
     .snoop_resp_t      (snoop_resp_t),
     .domain_set_t      (domain_set_t),
     .domain_mask_t     (domain_mask_t),
-    .mst_idx_t         (domain_mask_t)
+    .mst_idx_t         (mst_idx_t)
   ) i_master_path (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
@@ -139,12 +139,14 @@ module ace_ccu_top import ace_pkg::*;
     .BufferOupResp(1),
     .CmAddrBase   (CmAddrBase),
     .CmAddrWidth  (CmAddrWidth),
+    .AmAddrWidth  (AmAddrWidth),
+    .AmAddrBase   (AmAddrBase),
     .ac_chan_t    (snoop_ac_t),
     .cr_chan_t    (snoop_cr_t),
     .cd_chan_t    (snoop_cd_t),
     .snoop_req_t  (snoop_req_t),
     .snoop_resp_t (snoop_resp_t),
-    .mst_idx_t    (domain_mask_t)
+    .mst_idx_t    (mst_idx_t)
   ) i_snoop_interconnect (
     .clk_i             (clk_i),
     .rst_ni            (rst_ni),
@@ -154,11 +156,13 @@ module ace_ccu_top import ace_pkg::*;
     .inp_resp_o        (snoop_resps),
     .oup_req_o         (snoop_req_o),
     .oup_resp_i        (snoop_resp_i),
+    .excl_load_i       (excl_load),
+    .excl_store_i      (excl_store),
+    .excl_resp_o       (excl_resp),
     .cm_valid_o        (cm_snoop_valid),
     .cm_ready_o        (cm_snoop_ready),
     .cm_addr_o         (cm_snoop_addr),
-    .cm_stall_i        (cm_snoop_stall),
-    .am_ex_id_o        (am_ex_id)
+    .cm_stall_i        (cm_snoop_stall)
   );
 
   ace_ccu_conflict_manager #(

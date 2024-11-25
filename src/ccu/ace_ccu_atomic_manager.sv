@@ -14,21 +14,21 @@ module ace_ccu_atomic_manager #(
     input  am_idx_t                 am_ex_addr_i,
     /// Master ID
     input  mst_idx_t                am_ex_id_i,
-    output logic                    am_ex_okay_o,
+    output logic                    am_ex_okay_o
 );
 
-localparam int unsigned NumEntries = 2**CmIdxWidth;
+localparam int unsigned NumEntries = 2**AmIdxWidth;
 
-mst_idx_t id_mask_q, id_mask_d;
+mst_idx_t [NumEntries-1:0] id_mask_q, id_mask_d;
 
 always_comb begin
     id_mask_d    = id_mask_q;
     am_ex_okay_o = 1'b0;
     if (am_ex_store_i) begin
         // Exclusive Store
-        mst_idx_t new_mask      = id_mask_q[am_ex_addr_i] & am_ex_id_i;
-        id_mask_d[am_ex_addr_i] = new_mask;
-        am_ex_okay_o            = !(new_mask == 0);
+        static mst_idx_t new_mask = id_mask_q[am_ex_addr_i] & am_ex_id_i;
+        id_mask_d[am_ex_addr_i]   = new_mask;
+        am_ex_okay_o              = !(new_mask == 0);
     end else if (am_ex_load_i) begin
         // Exclusive Load
         id_mask_d[am_ex_addr_i] = id_mask_q[am_ex_addr_i] | am_ex_id_i;

@@ -262,7 +262,7 @@ always_comb begin
         WRITE_CD: begin
             mst_req_o.w_valid  = cd_fork_valid[MEM_W_IDX] && !aw_valid_q;
             slv_resp_o.r.data  = snoop_resp_i.cd.data;
-            slv_resp_o.r.resp  = {rresp_q[3:2], 1'b0, excl_store_resp_i};
+            slv_resp_o.r.resp  = {rresp_q[3:2], 1'b0, excl_resp_i};
             slv_resp_o.r.last  = r_last;
             slv_resp_o.r_valid = cd_fork_valid[MST_R_IDX] && !r_last_q;
             arlen_counter_en   = r_handshake;

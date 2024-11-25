@@ -382,7 +382,8 @@ module ace_ccu_master_path import ace_pkg::*;
       .snoop_req_t     (snoop_req_t),
       .snoop_resp_t    (snoop_resp_t),
       .domain_mask_t   (domain_mask_t),
-      .domain_set_t    (domain_set_t)
+      .domain_set_t    (domain_set_t),
+      .mst_idx_t       (mst_idx_t)
     ) i_snoop_path (
       .clk_i          (clk_i),
       .rst_ni         (rst_ni),

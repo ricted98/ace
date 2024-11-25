@@ -96,6 +96,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_snoop_resp_t    (snoop_resp_t),
         .domain_set_t        (domain_set_t),
         .domain_mask_t       (domain_mask_t),
+        .mst_idx_t           (mst_idx_t),
         .AXLEN               (WB_AXLEN),
         .AXSIZE              (WB_AXSIZE),
         .FIFO_DEPTH          (2)
@@ -149,6 +150,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_snoop_resp_t    (snoop_resp_t),
         .domain_set_t        (domain_set_t),
         .domain_mask_t       (domain_mask_t),
+        .mst_idx_t           (mst_idx_t),
         .AXLEN               (WB_AXLEN),
         .AXSIZE              (WB_AXSIZE),
         .FIFO_DEPTH          (2)
