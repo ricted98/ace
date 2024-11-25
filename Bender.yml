@@ -39,6 +39,7 @@ sources:
   - src/ccu/ace_ccu_snoop_path.sv
   - src/ccu/ace_ccu_master_path.sv
   - src/ccu/ace_ccu_conflict_manager.sv
+  - src/ccu/ace_ccu_atomic_manager.sv
   - src/ccu/ace_ccu_top.sv
   #- src/ccu_ctrl_pkg.sv
   ## Level 2
