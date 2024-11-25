@@ -44,6 +44,8 @@ package ace_pkg;
     logic accepts_dirty;
     logic accepts_dirty_shared;
     logic accepts_shared;
+    logic excl_load;
+    logic excl_store;
   } snoop_info_t;
 
   ///////////////
