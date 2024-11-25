@@ -19,7 +19,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     parameter type snoop_req_t             = logic, // Snoop port request type
     parameter type snoop_resp_t            = logic, // Snoop port response type
     parameter type domain_mask_t           = logic,
-    parameter type domain_set_t            = logic
+    parameter type domain_set_t            = logic,
+    parameter type mst_idx_t               = logic
 ) (
     input  logic                       clk_i,
     input  logic                       rst_ni,
@@ -30,7 +31,11 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     input  domain_set_t  [NoRules-1:0] domain_set_i,
     output snoop_req_t   [1:0]         snoop_reqs_o,
     input  snoop_resp_t  [1:0]         snoop_resps_i,
-    output domain_mask_t [1:0]         snoop_masks_o
+    output domain_mask_t [1:0]         snoop_masks_o,
+    output mst_idx_t     [1:0]         snoop_idx_o,
+    output logic         [1:0]         excl_load_o,
+    output logic         [1:0]         excl_store_o,
+    input  logic         [1:0]         excl_resp_i
 );
 
     localparam RuleIdBits = $clog2(NoRules);
@@ -91,6 +96,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_snoop_resp_t    (snoop_resp_t),
         .domain_set_t        (domain_set_t),
         .domain_mask_t       (domain_mask_t),
+        .mst_idx_t           (mst_idx_t),
         .AXLEN               (WB_AXLEN),
         .AXSIZE              (WB_AXSIZE),
         .FIFO_DEPTH          (2)
@@ -105,8 +111,13 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .snoop_req_o   (snoop_reqs_o   [0]),
         .snoop_resp_i  (snoop_resps_i  [0]),
         .domain_set_i  (domain_set_i[write_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [0])
+        .domain_mask_o (snoop_masks_o  [0]),
+        .mst_idx_o     (snoop_idx_o    [0])
     );
+
+    // Write channel cannot generate exclusive accesses
+    assign excl_load_o[0]  = 1'b0;
+    assign excl_store_o[0] = 1'b0;
 
     ///////////////
     // READ PATH //
@@ -139,6 +150,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_snoop_resp_t    (snoop_resp_t),
         .domain_set_t        (domain_set_t),
         .domain_mask_t       (domain_mask_t),
+        .mst_idx_t           (mst_idx_t),
         .AXLEN               (WB_AXLEN),
         .AXSIZE              (WB_AXSIZE),
         .FIFO_DEPTH          (2)
@@ -153,7 +165,11 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .snoop_req_o   (snoop_reqs_o   [1]),
         .snoop_resp_i  (snoop_resps_i  [1]),
         .domain_set_i  (domain_set_i[read_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [1])
+        .domain_mask_o (snoop_masks_o  [1]),
+        .mst_idx_o     (snoop_idx_o    [1]),
+        .excl_load_o   (excl_load_o    [1]),
+        .excl_store_o  (excl_store_o   [1]),
+        .excl_resp_i   (excl_resp_i    [1])
     );
 
 endmodule

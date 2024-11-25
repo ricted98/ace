@@ -34,6 +34,7 @@ module ace_ccu_master_path import ace_pkg::*;
   parameter type snoop_resp_t            = logic,
   parameter type domain_mask_t           = logic,
   parameter type domain_set_t            = logic,
+  parameter type mst_idx_t               = logic,
   // Local parameters
   localparam int unsigned NoGroups             = NoSlvPorts / NoSlvPerGroup,
   localparam int unsigned NoSnoopPortsPerGroup = 2,
@@ -47,12 +48,17 @@ module ace_ccu_master_path import ace_pkg::*;
   output slv_resp_t   [NoSlvPorts-1:0]   slv_resp_o,
   output snoop_req_t  [NoSnoopPorts-1:0] snoop_req_o,
   output domain_mask_t[NoSnoopPorts-1:0] snoop_masks_o,
+  output mst_idx_t    [NoSnoopPorts-1:0] snoop_idx_o,
   input  snoop_resp_t [NoSnoopPorts-1:0] snoop_resp_i,
   output mst_req_t                       mst_req_o,
   input  mst_resp_t                      mst_resp_i,
 
   output logic      [2*NoGroups-1:0]     cm_req_o,
-  output cm_addr_t  [2*NoGroups-1:0]     cm_addr_o
+  output cm_addr_t  [2*NoGroups-1:0]     cm_addr_o,
+
+  output logic [2*NoGroups-1:0] excl_load_o,
+  output logic [2*NoGroups-1:0] excl_store_o,
+  input  logic [2*NoGroups-1:0] excl_resp_i
 );
 
   typedef logic [AxiAddrWidth -1:0]  addr_t;
@@ -376,7 +382,8 @@ module ace_ccu_master_path import ace_pkg::*;
       .snoop_req_t     (snoop_req_t),
       .snoop_resp_t    (snoop_resp_t),
       .domain_mask_t   (domain_mask_t),
-      .domain_set_t    (domain_set_t)
+      .domain_set_t    (domain_set_t),
+      .mst_idx_t       (mst_idx_t)
     ) i_snoop_path (
       .clk_i          (clk_i),
       .rst_ni         (rst_ni),
@@ -387,7 +394,11 @@ module ace_ccu_master_path import ace_pkg::*;
       .domain_set_i   (domain_set_i   [(NoSlvPerGroup*i)+:NoSlvPerGroup]),
       .snoop_reqs_o   (snoop_req_o    [(2*i)+:2]),
       .snoop_resps_i  (snoop_resp_i   [(2*i)+:2]),
-      .snoop_masks_o  (snoop_masks_o  [(2*i)+:2])
+      .snoop_masks_o  (snoop_masks_o  [(2*i)+:2]),
+      .snoop_idx_o    (snoop_idx_o    [(2*i)+:2]),
+      .excl_load_o    (excl_load_o    [(2*i)+:2]),
+      .excl_store_o   (excl_store_o   [(2*i)+:2]),
+      .excl_resp_i    (excl_resp_i    [(2*i)+:2])
     );
 
     for (genvar j = 1; j < NoMemPortsPerGroup; j++) begin : gen_ace_to_axi

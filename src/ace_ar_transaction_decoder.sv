@@ -12,6 +12,8 @@ module ace_ar_transaction_decoder import ace_pkg::*; #(
 
 arsnoop_t arsnoop;
 
+logic lock;
+
 logic     is_shareable;
 logic     is_system;
 logic     is_barrier;
@@ -32,6 +34,7 @@ logic dvm_complete;
 logic dvm_message;
 
 assign arsnoop      = ar_i.snoop;
+assign lock         = ar_i.lock;
 
 assign is_shareable = ar_i.domain inside {InnerShareable, OuterShareable};
 assign is_system    = ar_i.domain inside {System};
@@ -59,6 +62,8 @@ always_comb begin
     snoop_info_o.accepts_dirty        = 1'b0;
     snoop_info_o.accepts_dirty_shared = 1'b0;
     snoop_info_o.accepts_shared       = 1'b0;
+    snoop_info_o.excl_load            = 1'b0;
+    snoop_info_o.excl_store           = 1'b0;
     unique case (1'b1)
         read_no_snoop: begin
             snooping_o = 1'b0;
@@ -70,9 +75,11 @@ always_comb begin
             snoop_info_o.accepts_dirty        = 1'b1;
             snoop_info_o.accepts_dirty_shared = 1'b1;
             snoop_info_o.accepts_shared       = 1'b1;
+            snoop_info_o.excl_load            = lock;
         end
         read_clean: begin
             snoop_info_o.accepts_shared       = 1'b1;
+            snoop_info_o.excl_load            = lock;
         end
         read_not_shared_dirty: begin
             snoop_info_o.accepts_dirty        = 1'b1;
@@ -82,7 +89,8 @@ always_comb begin
             snoop_info_o.accepts_dirty        = 1'b1;
         end
         clean_unique: begin
-            snoop_info_o.snoop_trs = acsnoop_t'(CleanInvalid);
+            snoop_info_o.snoop_trs            = acsnoop_t'(CleanInvalid);
+            snoop_info_o.excl_store           = lock;
         end
         make_unique: begin
              snoop_info_o.snoop_trs = acsnoop_t'(MakeInvalid);
