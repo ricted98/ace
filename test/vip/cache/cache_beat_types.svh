@@ -23,6 +23,7 @@ class cache_req;
     bit          cached       = 0;
     int unsigned shareability = 0;
     int unsigned size         = 0;
+    bit          exclusive    = 0;
     int unsigned timestamp    = 0;
 endclass
 

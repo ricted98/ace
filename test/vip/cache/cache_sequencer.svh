@@ -51,6 +51,7 @@ class cache_sequencer #(
         req.size         = get_next_word(line).atoi();
         req.cached       = get_next_word(line).atoi();
         req.shareability = get_next_word(line).atoi();
+        req.exclusive    = get_next_word(line).atoi();
         req.timestamp    = get_next_word(line).atoi();
         return req;
     endfunction

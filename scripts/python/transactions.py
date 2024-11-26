@@ -53,6 +53,7 @@ class CacheTransaction:
       size: int = 0,
       shareability: int = 0,
       cached: bool = False,
+      exclusive: bool = False,
       time: int = 0,
   ):
     """
@@ -71,6 +72,8 @@ class CacheTransaction:
         and system (3) supported.
       cached
         Whether request is cached.
+      exclusive
+        Whether request is exclusive (load-reserve or store-conditional)
       time
         The time stamp to send the request. In clock steps after reset.
         If 0 (default), it will be sent as soon as possible.
@@ -81,6 +84,7 @@ class CacheTransaction:
     self.size = size
     self.shareability = shareability
     self.cached = cached
+    self.exclusive = exclusive
     self.time = time
 
 class CacheTransactionSequence:
@@ -120,6 +124,8 @@ class CacheTransactionSequence:
     else:
       # 20% chance to generate uncached request
       cached = choices([True, False], weights=[80, 20], k=1)[0]
+    # Exclusive accesses should be generated in LR-SC pairs
+    exclusive = False
     data = self.get_rand_data()
     size = int(log2(self.dw))
     return CacheTransaction(
@@ -129,7 +135,8 @@ class CacheTransactionSequence:
       size=size,
       shareability=shareability,
       cached=cached,
-      time=0
+      exclusive=exclusive,
+      time=0,
     )
 
   def generate_file(self, filename):
@@ -143,7 +150,8 @@ class CacheTransactionSequence:
         file.write(
           f"OPER:{txn.op.name} ADDR:{txn.addr:0{self.aw // 4}x} "
           f"DATA:{txn.data:0{self.dw // 4}x} SIZE:{txn.size} "
-          f"CACH:{int(txn.cached)} SHAR:{txn.shareability} TIME:{txn.time}"
+          f"CACH:{int(txn.cached)} SHAR:{txn.shareability} "
+          f"EXCL:{int(txn.exclusive)} TIME:{txn.time}"
         )
 
 
