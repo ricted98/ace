@@ -6,6 +6,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     parameter int unsigned DcacheLineWidth = 0,
     parameter int unsigned AxiDataWidth    = 0,
     parameter int unsigned AxiSlvIdWidth   = 0,
+    parameter bit          LEGACY          = 0,
     parameter type aw_chan_t               = logic, // AW Channel Type
     parameter type w_chan_t                = logic, //  W Channel Type
     parameter type b_chan_t                = logic, //  B Channel Type
@@ -69,7 +70,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     // WRITE PATH //
     ////////////////
 
-    acsnoop_t  write_acsnoop;
+    snoop_info_t write_snoop_info;
     rule_idx_t write_rule_idx;
 
     if (NoRules == 1)
@@ -78,11 +79,12 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         assign write_rule_idx = slv_write_req.aw.id[AxiSlvIdWidth+:RuleIdBits];
 
     ace_aw_transaction_decoder #(
+        .LEGACY    (LEGACY),
         .aw_chan_t (aw_chan_t)
     ) i_write_decoder (
         .aw_i          (slv_write_req.aw),
         .snooping_o    (),
-        .acsnoop_o     (write_acsnoop),
+        .snoop_info_o  (write_snoop_info),
         .illegal_trs_o ()
     );
 
@@ -105,7 +107,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .rst_ni        (rst_ni),
         .slv_req_i     (slv_write_req),
         .slv_resp_o    (slv_write_resp),
-        .snoop_trs_i   (write_acsnoop),
+        .snoop_info_i  (write_snoop_info),
         .mst_req_o     (mst_reqs_o     [0]),
         .mst_resp_i    (mst_resps_i    [0]),
         .snoop_req_o   (snoop_reqs_o   [0]),
@@ -132,6 +134,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         assign read_rule_idx = slv_read_req.ar.id[AxiSlvIdWidth+:RuleIdBits];
 
     ace_ar_transaction_decoder #(
+        .LEGACY    (LEGACY),
         .ar_chan_t (ar_chan_t)
     ) i_read_decoder (
         .ar_i          (slv_read_req.ar),

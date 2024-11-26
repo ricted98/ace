@@ -1,10 +1,10 @@
 module ace_ar_transaction_decoder import ace_pkg::*; #(
+    parameter bit LEGACY     = 0,
     parameter type ar_chan_t = logic
 )(
     // Input channel
     input  ar_chan_t ar_i,
     // Control signals
-    /* TBD */
     output logic        snooping_o,
     output snoop_info_t snoop_info_o,
     output logic        illegal_trs_o
@@ -70,6 +70,8 @@ always_comb begin
         end
         read_once: begin
             snoop_info_o.accepts_shared       = 1'b1;
+            if (LEGACY)
+                snoop_info_o.excl_load        = lock;
         end
         read_shared: begin
             snoop_info_o.accepts_dirty        = 1'b1;
@@ -90,7 +92,8 @@ always_comb begin
         end
         clean_unique: begin
             snoop_info_o.snoop_trs            = acsnoop_t'(CleanInvalid);
-            snoop_info_o.excl_store           = lock;
+            if (!LEGACY)
+                snoop_info_o.excl_store       = lock;
         end
         make_unique: begin
              snoop_info_o.snoop_trs = acsnoop_t'(MakeInvalid);

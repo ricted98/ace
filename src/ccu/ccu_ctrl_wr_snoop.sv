@@ -39,7 +39,7 @@ module ccu_ctrl_wr_snoop #(
     input  slv_req_t                    slv_req_i,
     /// Decoded snoop transaction
     /// Assumed to be valid when slv_req_i is valid
-    input  acsnoop_t                    snoop_trs_i,
+    input  snoop_info_t                 snoop_info_i,
     /// Response channel towards cached master
     output slv_resp_t                   slv_resp_o,
     /// Request channel towards memory
@@ -61,7 +61,7 @@ module ccu_ctrl_wr_snoop #(
 // Data structure to store AW request and decoded snoop transaction
 typedef struct packed {
     slv_aw_chan_t aw;
-    acsnoop_t snoop_trs;
+    snoop_info_t  snoop_info;
 } slv_req_s;
 
 // FSM states
@@ -70,7 +70,6 @@ typedef enum logic [1:0] { SNOOP_RESP, WRITE_CD, WRITE_W } wr_fsm_t;
 logic cd_last_d, cd_last_q;
 logic aw_valid_d, aw_valid_q;
 logic ac_handshake, cd_handshake, w_slv_handshake;
-acsnoop_t snoop_trs_holder_d, snoop_trs_holder_q;
 logic w_last_d, w_last_q;
 logic ignore_cd_d, ignore_cd_q;
 slv_req_s slv_req, slv_req_holder;
@@ -81,13 +80,12 @@ logic write_back_source; // 0 - CD, 1 - Cache
 wr_fsm_t fsm_state_d, fsm_state_q;
 
 
-assign slv_req.aw        = slv_req_i.aw;
-assign slv_req.snoop_trs = snoop_trs_i;
-assign ac_handshake      = snoop_req_o.ac_valid  && snoop_resp_i.ac_ready;
-assign cd_handshake      = snoop_resp_i.cd_valid && snoop_req_o.cd_ready;
-assign b_handshake       = mst_req_o.b_ready && mst_resp_i.b_valid;
-assign w_slv_handshake   = slv_req_i.w_valid && slv_resp_o.w_ready;
-
+assign slv_req.aw         = slv_req_i.aw;
+assign slv_req.snoop_info = snoop_info_i.snoop_trs;
+assign ac_handshake       = snoop_req_o.ac_valid  && snoop_resp_i.ac_ready;
+assign cd_handshake       = snoop_resp_i.cd_valid && snoop_req_o.cd_ready;
+assign b_handshake        = mst_req_o.b_ready && mst_resp_i.b_valid;
+assign w_slv_handshake    = slv_req_i.w_valid && slv_resp_o.w_ready;
 
 
 always_ff @(posedge clk_i, negedge rst_ni) begin
@@ -110,7 +108,7 @@ end
 always_comb begin
     snoop_req_o.ac_valid = slv_req_i.aw_valid && slv_req_fifo_not_full;
     snoop_req_o.ac.addr  = slv_req.aw.addr;
-    snoop_req_o.ac.snoop = slv_req.snoop_trs;
+    snoop_req_o.ac.snoop = slv_req.snoop_info.snoop_trs;
     snoop_req_o.ac.prot  = slv_req.aw.prot;
     slv_resp_o.aw_ready  = snoop_resp_i.ac_ready && slv_req_fifo_not_full;
 end

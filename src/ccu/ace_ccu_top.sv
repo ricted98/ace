@@ -15,6 +15,7 @@ module ace_ccu_top import ace_pkg::*;
   parameter int unsigned CmAddrWidth     = 8,
   parameter int unsigned AmAddrWidth     = CmAddrWidth,
   parameter int unsigned AmAddrBase      = CmAddrBase,
+  parameter bit          LEGACY          = 0,
   parameter type slv_ar_chan_t           = logic,
   parameter type slv_aw_chan_t           = logic,
   parameter type slv_b_chan_t            = logic,
@@ -90,6 +91,7 @@ module ace_ccu_top import ace_pkg::*;
     .DcacheLineWidth   (DcacheLineWidth),
     .CmAddrBase        (CmAddrBase),
     .CmAddrWidth       (CmAddrWidth),
+    .LEGACY            (LEGACY),
     .slv_ar_chan_t     (slv_ar_chan_t),
     .slv_aw_chan_t     (slv_aw_chan_t),
     .slv_b_chan_t      (slv_b_chan_t),
@@ -192,6 +194,7 @@ module ace_ccu_top_intf #(
   parameter int unsigned NO_SLV_PORTS      = 0,
   parameter int unsigned NO_SLV_PER_GROUPS = 0,
   parameter int unsigned DCACHE_LINE_WIDTH = 0,
+  parameter bit          LEGACY            = 0,
   parameter type         domain_mask_t     = `DOMAIN_MASK_T(NO_SLV_PORTS),
   parameter type         domain_set_t      = `DOMAIN_SET_T
 ) (
@@ -264,6 +267,7 @@ module ace_ccu_top_intf #(
     .NoSlvPorts      (NO_SLV_PORTS     ),
     .NoSlvPerGroup   (NO_SLV_PER_GROUPS),
     .DcacheLineWidth (DCACHE_LINE_WIDTH),
+    .LEGACY          (LEGACY           ),
     .slv_ar_chan_t   (slv_ar_chan_t    ),
     .slv_aw_chan_t   (slv_aw_chan_t    ),
     .slv_b_chan_t    (slv_b_chan_t     ),

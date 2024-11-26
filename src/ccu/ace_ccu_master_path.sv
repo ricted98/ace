@@ -14,6 +14,7 @@ module ace_ccu_master_path import ace_pkg::*;
   parameter int unsigned CmAddrBase      = 0,
   parameter int unsigned CmAddrWidth     = 0,
   parameter bit          ConfCheck       = 0,
+  parameter bit          LEGACY          = 0,
   parameter type slv_ar_chan_t           = logic,
   parameter type slv_aw_chan_t           = logic,
   parameter type slv_b_chan_t            = logic,
@@ -101,15 +102,17 @@ module ace_ccu_master_path import ace_pkg::*;
     logic slv_aw_snooping, slv_ar_snooping;
 
     ace_aw_transaction_decoder #(
+        .LEGACY    (LEGACY),
         .aw_chan_t (slv_aw_chan_t)
     ) i_write_decoder (
         .aw_i          (slv_req_i[i].aw),
         .snooping_o    (slv_aw_snooping),
-        .acsnoop_o     (),
+        .snoop_info_o  (),
         .illegal_trs_o ()
     );
 
     ace_ar_transaction_decoder #(
+        .LEGACY    (LEGACY),
         .ar_chan_t (slv_ar_chan_t)
     ) i_read_decoder (
         .ar_i          (slv_req_i[i].ar),
@@ -369,6 +372,7 @@ module ace_ccu_master_path import ace_pkg::*;
       .DcacheLineWidth (DcacheLineWidth),
       .AxiDataWidth    (AxiDataWidth),
       .AxiSlvIdWidth   (AxiSlvIdWidth),
+      .LEGACY          (LEGACY),
       .aw_chan_t       (int_ace_aw_chan_t),
       .w_chan_t        (w_chan_t),
       .b_chan_t        (int_ace_b_chan_t),
