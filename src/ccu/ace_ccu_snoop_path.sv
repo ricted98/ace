@@ -156,7 +156,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .mst_idx_t           (mst_idx_t),
         .AXLEN               (WB_AXLEN),
         .AXSIZE              (WB_AXSIZE),
-        .FIFO_DEPTH          (2)
+        .FIFO_DEPTH          (2),
+        .LEGACY              (LEGACY)
     ) i_ccu_ctrl_r_snoop (
         .clk_i         (clk_i),
         .rst_ni        (rst_ni),

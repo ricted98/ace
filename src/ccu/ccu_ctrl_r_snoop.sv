@@ -29,7 +29,9 @@ module ccu_ctrl_r_snoop #(
     /// Fixed value for AXSIZE for write back
     parameter int unsigned AXSIZE     = 0,
     /// Depth of FIFO that stores AR requests
-    parameter int unsigned FIFO_DEPTH = 2
+    parameter int unsigned FIFO_DEPTH = 2,
+    /// Support for legacy WB cache
+    parameter bit          LEGACY     = 0
 ) (
     /// Clock
     input                               clk_i,
@@ -301,7 +303,8 @@ always_comb begin
                 ar_valid_d = 1'b0;
             end
             slv_resp_o.r       = mst_resp_i.r;
-            slv_resp_o.r.resp  = rresp_q;
+            if (!LEGACY)
+                slv_resp_o.r.resp = rresp_q;
             slv_resp_o.r_valid = mst_resp_i.r_valid;
             mst_req_o.r_ready  = slv_req_i.r_ready;
             if (r_handshake && slv_resp_o.r.last) begin
