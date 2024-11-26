@@ -70,18 +70,20 @@ always_comb begin
         end
         read_once: begin
             snoop_info_o.accepts_shared       = 1'b1;
-            if (LEGACY)
-                snoop_info_o.excl_load        = lock;
+            if (LEGACY && lock)
+                snoop_info_o.snoop_trs        = acsnoop_t'(CleanInvalid);
         end
         read_shared: begin
             snoop_info_o.accepts_dirty        = 1'b1;
             snoop_info_o.accepts_dirty_shared = 1'b1;
             snoop_info_o.accepts_shared       = 1'b1;
-            snoop_info_o.excl_load            = lock;
+            if (!LEGACY)
+                snoop_info_o.excl_load        = lock;
         end
         read_clean: begin
             snoop_info_o.accepts_shared       = 1'b1;
-            snoop_info_o.excl_load            = lock;
+            if (!LEGACY)
+                snoop_info_o.excl_load        = lock;
         end
         read_not_shared_dirty: begin
             snoop_info_o.accepts_dirty        = 1'b1;

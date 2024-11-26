@@ -28,9 +28,6 @@ logic barrier;
 logic lock;
 
 assign awsnoop      = aw_i.snoop;
-// Locks are used ONLY in legacy setup
-// ACE doesn't support aw_lock to shareable regions
-assign lock         = aw_i.lock;
 
 assign is_shareable = aw_i.domain inside {InnerShareable, OuterShareable};
 assign is_system    = aw_i.domain inside {System};
@@ -61,8 +58,6 @@ always_comb begin
         write_unique: begin
             snoop_info_o.snoop_trs  = acsnoop_t'(CleanInvalid);
             snooping_o = 1'b1;
-            if (LEGACY)
-                snoop_info_o.excl_store = lock;
         end
         write_line_unique: begin
             snoop_info_o.snoop_trs  = acsnoop_t'(MakeInvalid);
