@@ -5,7 +5,6 @@ module ace_aw_transaction_decoder import ace_pkg::*; #(
     // Input channel
     input  aw_chan_t aw_i,
     // Control signals
-    output acsnoop_t    acsnoop_o,
     output logic        snooping_o,
     output snoop_info_t snoop_info_o,
     output logic        illegal_trs_o
