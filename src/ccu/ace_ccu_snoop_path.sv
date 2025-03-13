@@ -1,3 +1,14 @@
+// Copyright (c) 2025 ETH Zurich, University of Bologna
+//
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+
 `include "ace/typedef.svh"
 `include "ace/assign.svh"
 
@@ -65,6 +76,8 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     localparam WB_AXSIZE = $clog2(AxiDataWidth/8);
     localparam WB_OFFSET = $clog2(DcacheLineWidth/8);
     localparam WB_ALIGN  = WB_OFFSET > WB_AXSIZE ? WB_OFFSET : WB_AXSIZE;
+
+    logic aw_wb, b_wb;
 
     ///////////
     // SPLIT //
@@ -134,8 +147,11 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .slv_req_t           (ace_req_t),
         .slv_resp_t          (ace_resp_t),
         .slv_aw_chan_t       (ace_aw_chan_t),
+        .slv_w_chan_t        (w_chan_t),
         .mst_req_t           (int_axi_req_t),
         .mst_resp_t          (int_axi_resp_t),
+        .mst_aw_chan_t       (int_axi_aw_chan_t),
+        .mst_w_chan_t        (w_chan_t),
         .mst_snoop_req_t     (snoop_req_t),
         .mst_snoop_resp_t    (snoop_resp_t),
         .domain_set_t        (domain_set_t),
@@ -155,7 +171,9 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .snoop_req_o   (snoop_reqs_o   [0]),
         .snoop_resp_i  (snoop_resps_i  [0]),
         .domain_set_i  (domain_set_i[write_rule_idx]),
-        .domain_mask_o (snoop_masks_o  [0])
+        .domain_mask_o (snoop_masks_o  [0]),
+        .aw_wb_o       (aw_wb),
+        .b_wb_i        (b_wb)
     );
 
     ///////////////
@@ -184,6 +202,7 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .slv_req_t           (ace_req_t),
         .slv_resp_t          (ace_resp_t),
         .slv_ar_chan_t       (ace_ar_chan_t),
+        .slv_r_chan_t        (ace_r_chan_t),
         .mst_req_t           (int_axi_req_t),
         .mst_resp_t          (int_axi_resp_t),
         .mst_snoop_req_t     (snoop_req_t),
@@ -224,7 +243,9 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
         .r_mst_req_i   (mst_reqs[1]),
         .r_mst_resp_o  (mst_resps[1]),
         .mst_req_o,
-        .mst_resp_i
+        .mst_resp_i,
+        .aw_wb_i       (aw_wb),
+        .b_wb_o        (b_wb)
     );
 
 endmodule

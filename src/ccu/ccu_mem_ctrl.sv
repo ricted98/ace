@@ -1,3 +1,14 @@
+// Copyright (c) 2025 ETH Zurich, University of Bologna
+//
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+
 `include "axi/assign.svh"
 // Memory controller
 // Mux the two AW channel and keep locked until last W beat
@@ -26,7 +37,11 @@ module ccu_mem_ctrl import ace_pkg::*; #(
     /// AXI request to main memory
     output mst_req_t  mst_req_o,
     /// AXI response from main memory
-    input  mst_resp_t mst_resp_i
+    input  mst_resp_t mst_resp_i,
+    /// AW is write-back
+    input  logic aw_wb_i,
+    /// B is write-back
+    output logic b_wb_o
 );
 
 localparam int unsigned FIFO_DEPTH = 4;
@@ -84,7 +99,11 @@ always_comb begin
     if (mst_req.aw.lock) begin
         mst_req_o.aw.id = {2'b00, mst_req.aw.id[SlvAxiIdWidth-1:0]};
     end else begin
-        mst_req_o.aw.id = {!w_select, w_select, mst_req.aw.id[SlvAxiIdWidth-1:0]};
+        mst_req_o.aw.id = {
+            w_select  ? 2'b01 :
+            aw_wb_i   ? 2'b11 :
+                        2'b10,
+            mst_req.aw.id[SlvAxiIdWidth-1:0]};
     end
     if (mst_req.ar.lock) begin
         mst_req_o.ar.id = {2'b00, mst_req.ar.id[SlvAxiIdWidth-1:0]};
@@ -140,8 +159,8 @@ assign mst_req_o.w_valid = w_valid            && !w_fifo_empty;
 assign w_ready           = mst_resp_i.w_ready && !w_fifo_empty;
 
 // B Channel
-assign r_mst_resp_o.b  = mst_resp_i.b;
-assign wr_mst_resp_o.b = mst_resp_i.b;
+`AXI_ASSIGN_B_STRUCT(r_mst_resp_o.b, mst_resp_i.b)
+`AXI_ASSIGN_B_STRUCT(wr_mst_resp_o.b, mst_resp_i.b)
 always_comb begin
     r_mst_resp_o.b_valid  = 1'b0;
     wr_mst_resp_o.b_valid = 1'b0;
@@ -155,9 +174,11 @@ always_comb begin
     end
 end
 
+assign b_wb_o = mst_resp_i.b.id[SlvAxiIdWidth+1:SlvAxiIdWidth] == 2'b11;
+
 // R Channel
-assign r_mst_resp_o.r  = mst_resp_i.r;
-assign wr_mst_resp_o.r = mst_resp_i.r;
+`AXI_ASSIGN_R_STRUCT(r_mst_resp_o.r, mst_resp_i.r)
+`AXI_ASSIGN_R_STRUCT(wr_mst_resp_o.r, mst_resp_i.r)
 always_comb begin
     wr_mst_resp_o.r_valid = 1'b0;
     r_mst_resp_o.r_valid  = 1'b0;
