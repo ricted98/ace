@@ -50,16 +50,36 @@ module tb_ace_ccu_top #(
     // axi configuration
     localparam int unsigned AxiIdWidthMasters =  4;
     localparam int unsigned AxiIdUsed         =  3;
-    localparam int unsigned AxiIdWidthSlave   =  AxiIdWidthMasters
-                                                 + $clog2(MstPerGroup)
-                                                 + $clog2(3*NoGroups)
-                                                 + 1; // R/W FSM encoding
     localparam int unsigned AxiAddrWidth      =  AddrWidth;
     localparam int unsigned AxiDataWidth      =  DataWidth;
     localparam int unsigned AxiStrbWidth      =  AxiDataWidth / 8;
     localparam int unsigned AxiUserWidth      =  5;
     localparam int unsigned WriteBackLen      = CachelineWords - 1;
     localparam int unsigned WriteBackSize     = $clog2(DataWidth / 8);
+
+    localparam ccu_pkg::ccu_user_cfg_t CcuUserCfg = '{
+        DcacheLineWidth: CachelineBits,
+        AxiAddrWidth   : AxiAddrWidth,
+        AxiDataWidth   : AxiDataWidth,
+        AxiUserWidth   : AxiUserWidth,
+        AxiSlvIdWidth  : AxiIdWidthMasters,
+        NoSlvPorts     : TbNumMst,
+        NoSlvPerGroup  : MstPerGroup,
+        AmoHotfix      : 1,
+        CmAddrBase     : $clog2(CachelineBits >> 3),
+        CmAddrWidth    : 12,
+        CutSnoopReq    : 1,
+        CutSnoopResp   : 1,
+        CutSlvAx       : 1,
+        CutSlvReq      : 0,
+        CutSlvResp     : 0,
+        CutMstAx       : 1,
+        CutMstReq      : 0,
+        CutMstResp     : 0
+    };
+
+    localparam ccu_pkg::ccu_cfg_t CcuCfg    = ccu_pkg::ccu_build_cfg(CcuUserCfg);
+    localparam int unsigned AxiIdWidthSlave = CcuCfg.AxiMstIdWidth;
 
     typedef logic [AxiIdWidthMasters-1:0] id_t;
     typedef logic [AxiIdWidthSlave-1:0]   id_slv_t;
@@ -311,29 +331,6 @@ module tb_ace_ccu_top #(
     initial begin
         $readmemh(init_main_mem, axi_mem.i_sim_mem.mem);
     end
-
-    localparam ccu_pkg::ccu_user_cfg_t CcuUserCfg = '{
-        DcacheLineWidth: CachelineBits,
-        AxiAddrWidth   : AxiAddrWidth,
-        AxiDataWidth   : AxiDataWidth,
-        AxiUserWidth   : AxiUserWidth,
-        AxiSlvIdWidth  : AxiIdWidthMasters,
-        NoSlvPorts     : TbNumMst,
-        NoSlvPerGroup  : MstPerGroup,
-        AmoHotfix      : 1,
-        CmAddrBase     : $clog2(CachelineBits >> 3),
-        CmAddrWidth    : 12,
-        CutSnoopReq    : 1,
-        CutSnoopResp   : 1,
-        CutSlvAx       : 1,
-        CutSlvReq      : 0,
-        CutSlvResp     : 0,
-        CutMstAx       : 1,
-        CutMstReq      : 0,
-        CutMstResp     : 0
-    };
-
-    localparam ccu_pkg::ccu_cfg_t CcuCfg = ccu_pkg::ccu_build_cfg(CcuUserCfg);
 
     ace_ccu_top_intf #(
         .CCU_CFG      (CcuCfg)
