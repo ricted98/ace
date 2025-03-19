@@ -65,7 +65,7 @@
     int unsigned NO_SNOOP_PORTS_PER_GROUP = 2; // read, write
     int unsigned NO_MEM_PORTS_PER_GROUP   = 2; // nosnooping, snooping
     int unsigned NO_GROUPS                = ccu_user_cfg.NoSlvPorts / ccu_user_cfg.NoSlvPerGroup;
-    int unsigned NO_SNOOP_PORTS           = NO_SNOOP_PORTS_PER_GROUP * ccu_user_cfg.NoSlvPerGroup;
+    int unsigned NO_SNOOP_PORTS           = NO_SNOOP_PORTS_PER_GROUP * NO_GROUPS;
     int unsigned NO_MEM_PORTS             = NO_MEM_PORTS_PER_GROUP * NO_GROUPS;
     int unsigned AXI_MST_ID_WIDTH         =
       ccu_user_cfg.AxiSlvIdWidth         + // Initial ID width
