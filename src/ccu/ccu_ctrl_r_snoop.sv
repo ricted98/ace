@@ -15,7 +15,9 @@
 // FSM to control read snoop transactions
 // This module assumes that snooping happens
 // Non-snooping transactions should be handled outside
-module ccu_ctrl_r_snoop import ace_pkg::*; #(
+module ccu_ctrl_r_snoop import ace_pkg::*; import ccu_pkg::*; #(
+    /// CCU config structure
+    parameter ccu_cfg_t CcuCfg        = '{default: '0},
     /// Request channel type towards cached master
     parameter type slv_req_t          = logic,
     /// Response channel type towards cached master
@@ -36,14 +38,6 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     parameter type domain_set_t       = logic,
     /// Domain mask type
     parameter type domain_mask_t      = logic,
-    /// Fixed value for AXLEN for write back
-    parameter int unsigned AXLEN      = 0,
-    /// Fixed value for AXSIZE for write back
-    parameter int unsigned AXSIZE     = 0,
-    /// Cacheline offset bits
-    parameter int unsigned BLOCK_OFFSET = 0,
-    /// Fixed value to align CD writeback addresses,
-    parameter int unsigned ALIGN_SIZE = 0,
     /// Depth of FIFO that stores AR requests
     parameter int unsigned FIFO_DEPTH = 2
 ) (
@@ -72,10 +66,8 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     output domain_mask_t                domain_mask_o
 );
 
-    parameter int unsigned ARUSER_WIDTH    = $bits(slv_req_i.ar.user);
-    parameter int unsigned ARID_WIDTH      = $bits(slv_req_i.ar.id);
     parameter int unsigned ARLEN_CNT_WIDTH = 5;
-    parameter int unsigned RDROP_CNT_WIDTH = $clog2(AXLEN)+1;
+    parameter int unsigned RDROP_CNT_WIDTH = $clog2(CcuCfg.WbAxLen + 1);
 
     typedef struct packed {
         slv_ar_chan_t ar;
@@ -83,12 +75,12 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     } slv_trs_t;
 
     typedef struct packed {
-        logic [ARLEN_CNT_WIDTH-1:0] arlen;
-        logic [RDROP_CNT_WIDTH-1:0] rdrop;
-        logic [1:0]                 crresp;
-        logic [ARUSER_WIDTH-1:0]    aruser;
-        logic [ARID_WIDTH-1:0]      arid;
-        logic                       write_back;
+        logic [ARLEN_CNT_WIDTH-1:0]          arlen;
+        logic [RDROP_CNT_WIDTH-1:0]          rdrop;
+        logic [1:0]                          crresp;
+        logic [CcuCfg.AxiUserWidth-1:0]      aruser;
+        logic [CcuCfg.AxiPostMuxIdWidth-1:0] arid;
+        logic                                write_back;
     } wb_trs_t;
 
     logic wb_lock_d, wb_lock_q;
@@ -108,13 +100,13 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     logic cd_sel_valid, cd_sel_ready;
     logic [1:0] cd_sel;
 
-    logic                   rdrop_cnt_en, rdrop_cnt_clr;
-    logic [$clog2(AXLEN):0] rdrop_cnt_q;
-    logic                   rdrop;
-    logic                   arlen_cnt_en, arlen_cnt_clr;
-    logic [4:0]             arlen_cnt_q;
-    logic                   rlast;
-    logic                   rdone_q, rdone_d;
+    logic                       rdrop_cnt_en, rdrop_cnt_clr;
+    logic [RDROP_CNT_WIDTH-1:0] rdrop_cnt_q;
+    logic                       rdrop;
+    logic                       arlen_cnt_en, arlen_cnt_clr;
+    logic [4:0]                 arlen_cnt_q;
+    logic                       rlast;
+    logic                       rdone_q, rdone_d;
 
     logic mst_aw_valid, mst_aw_ready;
     logic mst_w_valid, mst_w_ready;
@@ -195,7 +187,7 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
 
     assign wb_trs_fifo_in.arid       = slv_trs_fifo_out.ar.id;
     assign wb_trs_fifo_in.arlen      = slv_trs_fifo_out.ar.len;
-    assign wb_trs_fifo_in.rdrop      = slv_trs_fifo_out.ar.addr[BLOCK_OFFSET-1:AXSIZE];
+    assign wb_trs_fifo_in.rdrop      = slv_trs_fifo_out.ar.addr[CcuCfg.DcachelineOffset-1:CcuCfg.WbAxSize];
     assign wb_trs_fifo_in.crresp     = {resp_shared, resp_dirty};
     assign wb_trs_fifo_in.aruser     = slv_trs_fifo_out.ar.user;
     assign wb_trs_fifo_in.write_back = write_back;
@@ -408,9 +400,9 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     // AC
     assign snoop_req_o.ac_valid = ac_valid;
     assign ac_ready             = snoop_resp_i.ac_ready;
-    assign snoop_req_o.ac.addr  = slv_trs_fifo_in.ar.addr;
-    assign snoop_req_o.ac.snoop = slv_trs_fifo_in.snoop_info.snoop_trs;
-    assign snoop_req_o.ac.prot  = slv_trs_fifo_in.ar.prot;
+    assign snoop_req_o.ac.addr  = slv_req_i.ar.addr;
+    assign snoop_req_o.ac.snoop = snoop_info_i.snoop_trs;
+    assign snoop_req_o.ac.prot  = slv_req_i.ar.prot;
 
     // CR
     assign snoop_req_o.cr_ready = cr_ready;
@@ -436,9 +428,9 @@ module ccu_ctrl_r_snoop import ace_pkg::*; #(
     assign mst_req_o.aw_valid  = mst_aw_valid;
     assign mst_aw_ready        = mst_resp_i.aw_ready;
     assign mst_req_o.aw.id     = slv_trs_fifo_out.ar.id;
-    assign mst_req_o.aw.addr   = axi_pkg::aligned_addr(slv_trs_fifo_out.ar.addr, ALIGN_SIZE);
-    assign mst_req_o.aw.len    = AXLEN;
-    assign mst_req_o.aw.size   = AXSIZE;
+    assign mst_req_o.aw.addr   = axi_pkg::aligned_addr(slv_trs_fifo_out.ar.addr, CcuCfg.WbAddrAlignment);
+    assign mst_req_o.aw.len    = CcuCfg.WbAxLen;
+    assign mst_req_o.aw.size   = CcuCfg.WbAxSize;
     assign mst_req_o.aw.burst  = axi_pkg::BURST_WRAP;
     assign mst_req_o.aw.lock   = 1'b0;
     assign mst_req_o.aw.cache  = axi_pkg::CACHE_MODIFIABLE;

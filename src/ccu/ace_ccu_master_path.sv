@@ -58,20 +58,18 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
   // Localparams //
   /////////////////
 
-  // ID width after ACE mux
-  localparam PostMuxIdWidth = CcuCfg.AxiSlvIdWidth + $clog2(CcuCfg.NoSlvPerGroup);
   // ID width after snoop_path (adds 2 bits)
-  localparam PostSnpIdWidth = PostMuxIdWidth + 2;
+  localparam PostSnpIdWidth = CcuCfg.AxiPostMuxIdWidth + 2;
 
   //////////////
   // Typedefs //
   //////////////
 
-  typedef logic [CcuCfg.AxiAddrWidth -1:0]  addr_t;
-  typedef logic [CcuCfg.AxiDataWidth-1:0]   data_t;
-  typedef logic [CcuCfg.AxiUserWidth-1:0]   user_t;
-  typedef logic [PostMuxIdWidth-1:0]        pm_id_t;
-  typedef logic [PostSnpIdWidth-1:0]        ps_id_t;
+  typedef logic [CcuCfg.AxiAddrWidth -1:0]     addr_t;
+  typedef logic [CcuCfg.AxiDataWidth-1:0]      data_t;
+  typedef logic [CcuCfg.AxiUserWidth-1:0]      user_t;
+  typedef logic [CcuCfg.AxiPostMuxIdWidth-1:0] pm_id_t;
+  typedef logic [PostSnpIdWidth-1:0]           ps_id_t;
 
   `ACE_TYPEDEF_AW_CHAN_T(int_ace_aw_chan_t, addr_t, pm_id_t, user_t)
   `AXI_TYPEDEF_B_CHAN_T (int_ace_b_chan_t, pm_id_t, user_t)
@@ -243,10 +241,10 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
     logic w_fifo_full;
     logic w_fifo_push, w_fifo_pop;
 
-    logic [PostMuxIdWidth-1:0] w_fifo_id_in, w_fifo_id_out;
+    logic [CcuCfg.AxiPostMuxIdWidth-1:0] w_fifo_id_in, w_fifo_id_out;
 
     id_queue #(
-      .ID_WIDTH            (PostMuxIdWidth),
+      .ID_WIDTH            (CcuCfg.AxiPostMuxIdWidth),
       .CAPACITY            (8),
       .FULL_BW             (1'b1),
       .CUT_OUP_POP_INP_GNT (1'b1),
@@ -280,7 +278,7 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
     fifo_v3 #(
         .FALL_THROUGH (1'b0),
         .DEPTH        (4),
-        .DATA_WIDTH   (PostMuxIdWidth)
+        .DATA_WIDTH   (CcuCfg.AxiPostMuxIdWidth)
     ) i_w_addr_fifo (
         .clk_i,
         .rst_ni,
@@ -298,10 +296,10 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
     logic r_fifo_full;
     logic r_fifo_push, r_fifo_pop;
 
-    logic [PostMuxIdWidth-1:0] r_fifo_id_in, r_fifo_id_out;
+    logic [CcuCfg.AxiPostMuxIdWidth-1:0] r_fifo_id_in, r_fifo_id_out;
 
     id_queue #(
-      .ID_WIDTH            (PostMuxIdWidth),
+      .ID_WIDTH            (CcuCfg.AxiPostMuxIdWidth),
       .CAPACITY            (8),
       .FULL_BW             (1'b1),
       .CUT_OUP_POP_INP_GNT (1'b1),
@@ -336,7 +334,7 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
     fifo_v3 #(
         .FALL_THROUGH (1'b0),
         .DEPTH        (4),
-        .DATA_WIDTH   (PostMuxIdWidth)
+        .DATA_WIDTH   (CcuCfg.AxiPostMuxIdWidth)
     ) i_r_addr_fifo (
         .clk_i,
         .rst_ni,
@@ -379,13 +377,7 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
     int_axi_resp_t axi_memory_group_resps;
 
     ace_ccu_snoop_path #(
-      .LEGACY          (CcuCfg.AmoHotfix),
-      .NoRules         (CcuCfg.NoSlvPerGroup),
-      .DcacheLineWidth (CcuCfg.DcacheLineWidth),
-      .AxiDataWidth    (CcuCfg.AxiDataWidth),
-      .AxiSlvIdWidth   (CcuCfg.AxiSlvIdWidth),
-      .AxiAddrWidth    (CcuCfg.AxiAddrWidth),
-      .AxiUserWidth    (CcuCfg.AxiUserWidth),
+      .CcuCfg          (CcuCfg),
       .ace_aw_chan_t   (int_ace_aw_chan_t),
       .ace_ar_chan_t   (int_ace_ar_chan_t),
       .ace_r_chan_t    (int_ace_r_chan_t),
@@ -394,6 +386,10 @@ module ace_ccu_master_path import ace_pkg::*; import ccu_pkg::*;
       .w_chan_t        (w_chan_t),
       .axi_req_t       (int_axi_req_t),
       .axi_resp_t      (int_axi_resp_t),
+      .axi_ar_chan_t   (int_axi_ar_chan_t),
+      .axi_r_chan_t    (int_axi_r_chan_t),
+      .axi_aw_chan_t   (int_axi_aw_chan_t),
+      .axi_b_chan_t    (int_axi_b_chan_t),
       .snoop_ac_t      (snoop_ac_t),
       .snoop_cr_t      (snoop_cr_t),
       .snoop_cd_t      (snoop_cd_t),
