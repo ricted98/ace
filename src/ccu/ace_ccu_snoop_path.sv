@@ -216,23 +216,31 @@ module ace_ccu_snoop_path import ace_pkg::*; import ccu_pkg::*; #(
     );
 
     ccu_mem_ctrl #(
-        .slv_req_t  (int_axi_req_t),
-        .slv_resp_t (int_axi_resp_t),
-        .mst_req_t  (axi_req_t),
-        .mst_resp_t (axi_resp_t),
-        .aw_chan_t  (int_axi_aw_chan_t),
-        .w_chan_t   (w_chan_t)
+        .CcuCfg        (CcuCfg),
+        .slv_req_t     (int_axi_req_t),
+        .slv_resp_t    (int_axi_resp_t),
+        .mst_req_t     (axi_req_t),
+        .mst_resp_t    (axi_resp_t),
+        .slv_ar_chan_t (int_axi_ar_chan_t),
+        .slv_r_chan_t  (int_axi_r_chan_t),
+        .slv_aw_chan_t (int_axi_aw_chan_t),
+        .w_chan_t      (w_chan_t),
+        .slv_b_chan_t  (int_axi_b_chan_t),
+        .mst_ar_chan_t (axi_ar_chan_t),
+        .mst_r_chan_t  (axi_r_chan_t),
+        .mst_aw_chan_t (axi_aw_chan_t),
+        .mst_b_chan_t  (axi_b_chan_t)
     ) i_ccu_mem_ctrl (
         .clk_i,
         .rst_ni,
-        .wr_mst_req_i  (mst_reqs[0]),
-        .wr_mst_resp_o (mst_resps[0]),
-        .r_mst_req_i   (mst_reqs[1]),
-        .r_mst_resp_o  (mst_resps[1]),
+        .wr_slv_req_i   (mst_reqs[0]),
+        .wr_slv_resp_o  (mst_resps[0]),
+        .r_slv_req_i    (mst_reqs[1]),
+        .r_slv_resp_o   (mst_resps[1]),
         .mst_req_o,
         .mst_resp_i,
-        .aw_wb_i       (aw_wb),
-        .b_wb_o        (b_wb)
+        .wr_slv_aw_wb_i (aw_wb),
+        .wr_slv_b_wb_o  (b_wb)
     );
 
 endmodule
