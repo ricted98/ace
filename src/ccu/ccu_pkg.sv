@@ -53,29 +53,41 @@
     bit          CutMstReq;
     bit          CutMstResp;
     // Computed
+    int unsigned DcachelineOffset;
     int unsigned NoGroups;
     int unsigned NoSnoopPorts;
     int unsigned NoMemPorts;
+    int unsigned AxiPostMuxIdWidth;
     int unsigned AxiMstIdWidth;
     int unsigned NoSnoopPortsPerGroup;
     int unsigned NoMemPortsPerGroup;
+    int unsigned WbAxLen;
+    int unsigned WbAxSize;
+    int unsigned WbAddrAlignment;
   } ccu_cfg_t;
 
   function automatic ccu_cfg_t ccu_build_cfg (ccu_user_cfg_t ccu_user_cfg);
     int unsigned NO_SNOOP_PORTS_PER_GROUP = 2; // read, write
     int unsigned NO_MEM_PORTS_PER_GROUP   = 2; // nosnooping, snooping
+    int unsigned DCACHELINE_OFFSET        = $clog2(ccu_user_cfg.DcacheLineWidth / 8);
     int unsigned NO_GROUPS                = ccu_user_cfg.NoSlvPorts / ccu_user_cfg.NoSlvPerGroup;
     int unsigned NO_SNOOP_PORTS           = NO_SNOOP_PORTS_PER_GROUP * NO_GROUPS;
     int unsigned NO_MEM_PORTS             = NO_MEM_PORTS_PER_GROUP * NO_GROUPS;
+    int unsigned AXI_POST_MUX_ID_WIDTH    =
+      ccu_user_cfg.AxiSlvIdWidth +          // Initial ID width
+      $clog2(ccu_user_cfg.NoSlvPerGroup);   // Internal MUX additional bits
     int unsigned AXI_MST_ID_WIDTH         =
-      ccu_user_cfg.AxiSlvIdWidth         + // Initial ID width
-      $clog2(ccu_user_cfg.NoSlvPerGroup) + // Internal MUX additional bits
-      $clog2(NO_MEM_PORTS)               + // Final MUX additional bits
-      2;                                   // AMO support
+      AXI_POST_MUX_ID_WIDTH +
+      $clog2(NO_MEM_PORTS)  +               // Final MUX additional bits
+      2;                                    // AMO support
+    int unsigned WB_AXLEN                 = (ccu_user_cfg.DcacheLineWidth / ccu_user_cfg.AxiDataWidth) - 1;
+    int unsigned WB_AXSIZE                = $clog2(ccu_user_cfg.AxiDataWidth / 8);
+    int unsigned WB_ADDR_ALIGNMENT        = DCACHELINE_OFFSET > WB_AXSIZE ? DCACHELINE_OFFSET : WB_AXSIZE;
 
     ccu_cfg_t ccu_cfg = '{default: '0};
 
     ccu_cfg.DcacheLineWidth      = ccu_user_cfg.DcacheLineWidth;
+    ccu_cfg.DcachelineOffset     = DCACHELINE_OFFSET;
     ccu_cfg.AxiAddrWidth         = ccu_user_cfg.AxiAddrWidth;
     ccu_cfg.AxiDataWidth         = ccu_user_cfg.AxiDataWidth;
     ccu_cfg.AxiUserWidth         = ccu_user_cfg.AxiUserWidth;
@@ -96,9 +108,13 @@
     ccu_cfg.NoGroups             = NO_GROUPS;
     ccu_cfg.NoSnoopPorts         = NO_SNOOP_PORTS;
     ccu_cfg.NoMemPorts           = NO_MEM_PORTS;
+    ccu_cfg.AxiPostMuxIdWidth    = AXI_POST_MUX_ID_WIDTH;
     ccu_cfg.AxiMstIdWidth        = AXI_MST_ID_WIDTH;
     ccu_cfg.NoSnoopPortsPerGroup = NO_SNOOP_PORTS_PER_GROUP;
     ccu_cfg.NoMemPortsPerGroup   = NO_MEM_PORTS_PER_GROUP;
+    ccu_cfg.WbAxLen              = WB_AXLEN;
+    ccu_cfg.WbAxSize             = WB_AXSIZE;
+    ccu_cfg.WbAddrAlignment      = WB_ADDR_ALIGNMENT;
 
     return ccu_cfg;
 

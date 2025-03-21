@@ -15,7 +15,9 @@
 // FSM to control write snoop transactions
 // This module assumes that snooping happens
 // Non-snooping transactions should be handled outside
-module ccu_ctrl_wr_snoop import ace_pkg::*; #(
+module ccu_ctrl_wr_snoop import ace_pkg::*; import ccu_pkg::*; #(
+    /// CCU config structure
+    parameter ccu_cfg_t CcuCfg        = '{default: '0},
     /// Request channel type towards cached master
     parameter type slv_req_t          = logic,
     /// Response channel type towards cached master
@@ -40,12 +42,6 @@ module ccu_ctrl_wr_snoop import ace_pkg::*; #(
     parameter type domain_set_t       = logic,
     /// Domain mask type
     parameter type domain_mask_t      = logic,
-    /// Fixed value for AXLEN for write back
-    parameter int unsigned AXLEN      = 0,
-    /// Fixed value for AXSIZE for write back
-    parameter int unsigned AXSIZE     = 0,
-    /// Fixed value to align CD writeback addresses,
-    parameter int unsigned ALIGN_SIZE = 0,
     /// Depth of FIFO that stores AW requests
     parameter int unsigned FIFO_DEPTH = 2
 ) (
@@ -314,10 +310,10 @@ assign wb_aw_valid = mst_aw_fifo_valid_out;
 // Write-back AW channel
 always_comb begin
     `AXI_SET_AW_STRUCT(wb_aw, mst_aw_fifo_out)
-    wb_aw.addr  = axi_pkg::aligned_addr(mst_aw_fifo_out.addr, ALIGN_SIZE);
+    wb_aw.addr  = axi_pkg::aligned_addr(mst_aw_fifo_out.addr, CcuCfg.WbAddrAlignment);
     wb_aw.burst = axi_pkg::BURST_WRAP;
-    wb_aw.len   = AXLEN;
-    wb_aw.size  = AXSIZE;
+    wb_aw.len   = CcuCfg.WbAxLen;
+    wb_aw.size  = CcuCfg.WbAxSize;
     wb_aw.atop  = '0;
     wb_aw.lock  = '0;
 end
