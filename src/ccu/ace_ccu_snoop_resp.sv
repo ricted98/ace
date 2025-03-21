@@ -160,11 +160,13 @@ module ace_ccu_snoop_resp #(
         .ready_i     ({cr_sel_ready, cd_sel_lock_ready})
     );
 
-    ace_ccu_lock_reg #(
-        .dtype (ctrl_t)
+    fall_through_register #(
+        .T (ctrl_t)
     ) i_cd_sel_lock (
         .clk_i      (clk_i),
         .rst_ni     (rst_ni),
+        .clr_i      ('0),
+        .testmode_i ('0),
         .valid_i    (cd_sel_lock_valid),
         .ready_o    (cd_sel_lock_ready),
         .data_i     (cr_ctrl_o),

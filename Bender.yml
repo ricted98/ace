@@ -30,8 +30,6 @@ sources:
   - src/ace_cut.sv
   - src/ace_snoop_cut.sv
   # Level 2
-  - src/ccu/lookup_fifo.sv
-  - src/ccu/ace_ccu_lock_reg.sv
   - src/ccu/ccu_ctrl_wr_snoop.sv
   - src/ccu/ccu_ctrl_r_snoop.sv
   - src/ccu/ccu_mem_ctrl.sv
