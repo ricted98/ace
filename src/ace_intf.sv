@@ -10,6 +10,8 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+interface CLK_IF (input clk_i);
+endinterface
 
 // ACE bus interafces
 interface ACE_BUS #(
@@ -42,8 +44,8 @@ interface ACE_BUS #(
   logic             aw_valid;
   logic             aw_ready;
   ace_pkg::awsnoop_t aw_snoop;
-  ace_pkg::bar_t    aw_bar;
-  ace_pkg::domain_t aw_domain;
+  ace_pkg::axbar_t    aw_bar;
+  ace_pkg::axdomain_t aw_domain;
   ace_pkg::awunique_t aw_awunique;
 
   data_t            w_data;
@@ -73,8 +75,8 @@ interface ACE_BUS #(
   logic             ar_valid;
   logic             ar_ready;
   ace_pkg::arsnoop_t ar_snoop;
-  ace_pkg::bar_t    ar_bar;
-  ace_pkg::domain_t ar_domain;
+  ace_pkg::axbar_t    ar_bar;
+  ace_pkg::axdomain_t ar_domain;
  
   id_t              r_id;
   data_t            r_data;
@@ -135,23 +137,23 @@ interface ACE_BUS_DV #(
   typedef logic [AXI_STRB_WIDTH-1:0] strb_t;
   typedef logic [AXI_USER_WIDTH-1:0] user_t;
 
-  id_t              aw_id;
-  addr_t            aw_addr;
-  axi_pkg::len_t    aw_len;
-  axi_pkg::size_t   aw_size;
-  axi_pkg::burst_t  aw_burst;
-  logic             aw_lock;
-  axi_pkg::cache_t  aw_cache;
-  axi_pkg::prot_t   aw_prot;
-  axi_pkg::qos_t    aw_qos;
-  axi_pkg::region_t aw_region;
-  axi_pkg::atop_t   aw_atop;
-  user_t            aw_user;
-  logic             aw_valid;
-  logic             aw_ready;
-  ace_pkg::awsnoop_t aw_snoop;
-  ace_pkg::bar_t    aw_bar;
-  ace_pkg::domain_t aw_domain;
+  id_t                aw_id;
+  addr_t              aw_addr;
+  axi_pkg::len_t      aw_len;
+  axi_pkg::size_t     aw_size;
+  axi_pkg::burst_t    aw_burst;
+  logic               aw_lock;
+  axi_pkg::cache_t    aw_cache;
+  axi_pkg::prot_t     aw_prot;
+  axi_pkg::qos_t      aw_qos;
+  axi_pkg::region_t   aw_region;
+  axi_pkg::atop_t     aw_atop;
+  user_t              aw_user;
+  logic               aw_valid;
+  logic               aw_ready;
+  ace_pkg::awsnoop_t  aw_snoop;
+  ace_pkg::axbar_t    aw_bar;
+  ace_pkg::axdomain_t aw_domain;
   ace_pkg::awunique_t aw_awunique;
 
   data_t            w_data;
@@ -167,30 +169,30 @@ interface ACE_BUS_DV #(
   logic             b_valid;
   logic             b_ready;
 
-  id_t              ar_id;
-  addr_t            ar_addr;
-  axi_pkg::len_t    ar_len;
-  axi_pkg::size_t   ar_size;
-  axi_pkg::burst_t  ar_burst;
-  logic             ar_lock;
-  axi_pkg::cache_t  ar_cache;
-  axi_pkg::prot_t   ar_prot;
-  axi_pkg::qos_t    ar_qos;
-  axi_pkg::region_t ar_region;
-  user_t            ar_user;
-  logic             ar_valid;
-  logic             ar_ready;
-  ace_pkg::arsnoop_t ar_snoop;
-  ace_pkg::bar_t    ar_bar;
-  ace_pkg::domain_t ar_domain;
+  id_t                ar_id;
+  addr_t              ar_addr;
+  axi_pkg::len_t      ar_len;
+  axi_pkg::size_t     ar_size;
+  axi_pkg::burst_t    ar_burst;
+  logic               ar_lock;
+  axi_pkg::cache_t    ar_cache;
+  axi_pkg::prot_t     ar_prot;
+  axi_pkg::qos_t      ar_qos;
+  axi_pkg::region_t   ar_region;
+  user_t              ar_user;
+  logic               ar_valid;
+  logic               ar_ready;
+  ace_pkg::arsnoop_t  ar_snoop;
+  ace_pkg::axbar_t    ar_bar;
+  ace_pkg::axdomain_t ar_domain;
 
-  id_t              r_id;
-  data_t            r_data;
-  ace_pkg::rresp_t   r_resp;
-  logic             r_last;
-  user_t            r_user;
-  logic             r_valid;
-  logic             r_ready;
+  id_t             r_id;
+  data_t           r_data;
+  ace_pkg::rresp_t r_resp;
+  logic            r_last;
+  user_t           r_user;
+  logic            r_valid;
+  logic            r_ready;
 
   logic            wack;
   logic            rack;
