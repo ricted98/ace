@@ -5,24 +5,28 @@
   // Domain types //
   //////////////////
 
-    `define DOMAIN_MASK_T(width)\
-        logic [width-1:0]
-    `define DOMAIN_SET_T           \
-        struct packed {    \
-          domain_mask_t initiator; \
-          domain_mask_t inner;     \
-          domain_mask_t outer;     \
-        }
-    `define DOMAIN_TYPEDEF_MASK_T(width) \
-        typedef logic [width-1:0] domain_mask_t;
-    `define DOMAIN_TYPEDEF_SET_T \
-        typedef  struct packed {    \
-          domain_mask_t initiator; \
-          domain_mask_t inner;     \
-          domain_mask_t outer;     \
-        } domain_set_t;
-    `define DOMAIN_TYPEDEF_ALL(width) \
-        `DOMAIN_TYPEDEF_MASK_T(width) \
-        `DOMAIN_TYPEDEF_SET_T
+`define DOMAIN_BV_T(__width) \
+    logic [__width-1:0]
+
+`define DOMAIN_RULE_T(__bv_t) \
+    struct packed { \
+        __bv_t initiator; \
+        __bv_t inner;     \
+        __bv_t outer;     \
+    }
+
+`define DOMAIN_TYPEDEF_BV_T(__width, __bv_t) \
+    typedef logic [__width-1:0] __bv_t;
+
+`define DOMAIN_TYPEDEF_RULE_T(__bv_t, __set_t) \
+    typedef struct packed { \
+        __bv_t initiator; \
+        __bv_t inner;     \
+        __bv_t outer;     \
+    } __set_t;
+
+`define DOMAIN_TYPEDEF_ALL(__width, __bv_t, __set_t) \
+    `DOMAIN_TYPEDEF_BV_T(__width, __bv_t) \
+    `DOMAIN_TYPEDEF_RULE_T(__bv_t, __set_t)
 
 `endif // ACE_DOMAIN_SVH_

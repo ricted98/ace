@@ -57,28 +57,29 @@ module tb_ace_ccu_top #(
     localparam int unsigned WriteBackLen      = CachelineWords - 1;
     localparam int unsigned WriteBackSize     = $clog2(DataWidth / 8);
 
-    localparam ccu_pkg::ccu_user_cfg_t CcuUserCfg = '{
-        DcacheLineWidth: CachelineBits,
-        AxiAddrWidth   : AxiAddrWidth,
-        AxiDataWidth   : AxiDataWidth,
-        AxiUserWidth   : AxiUserWidth,
-        AxiSlvIdWidth  : AxiIdWidthMasters,
-        NoSlvPorts     : TbNumMst,
-        NoSlvPerGroup  : MstPerGroup,
-        AmoHotfix      : 1,
-        CmAddrBase     : $clog2(CachelineBits >> 3),
-        CmAddrWidth    : 12,
-        CutSnoopReq    : 1,
-        CutSnoopResp   : 1,
-        CutSlvAx       : 1,
-        CutSlvReq      : 0,
-        CutSlvResp     : 0,
-        CutMstAx       : 1,
-        CutMstReq      : 0,
-        CutMstResp     : 0
+    localparam ace_ccu_pkg::ace_ccu_user_cfg_t CcuUserCfg = '{
+        SlvPorts            : TbNumMst,
+        MaxTransactions     : 8,
+        MaxReadTransactions : 8,
+        FrontendArFifoDepth : 2,
+        FrontendAwFifoDepth : 2,
+        FrontendWFifoDepth  : 4,
+        AxiUniqueIds        : 0,
+        AxiIdLookupBits     : 3,
+        AxiAddrWidth        : AxiAddrWidth,
+        AxiDataWidth        : AxiDataWidth,
+        AxiUserWidth        : AxiUserWidth,
+        AxiSlvIdWidth       : AxiIdWidthMasters,
+        CachelineWidth      : CachelineBits,
+        CutSlvReq           : 1,
+        CutSlvResp          : 1,
+        CutMstReq           : 1,
+        CutMstResp          : 1,
+        CutSnoopReq         : 1,
+        CutSnoopResp        : 1
     };
 
-    localparam ccu_pkg::ccu_cfg_t CcuCfg    = ccu_pkg::ccu_build_cfg(CcuUserCfg);
+    localparam ace_ccu_pkg::ace_ccu_cfg_t CcuCfg = ace_ccu_pkg::ace_ccu_build_cfg(CcuUserCfg);
     localparam int unsigned AxiIdWidthSlave = CcuCfg.AxiMstIdWidth;
 
     typedef logic [AxiIdWidthMasters-1:0] id_t;
@@ -113,15 +114,15 @@ module tb_ace_ccu_top #(
     logic clk, rst_n;
     logic [TbNumMst-1:0] end_of_sim = '0;
 
-    // Defines domain_mask_t and domain_set_t
-    `DOMAIN_TYPEDEF_ALL(TbNumMst)
+    // Defines domain_mask_t and domain_rule_t
+    `DOMAIN_TYPEDEF_ALL(TbNumMst, mst_bv_t, domain_rule_t)
 
-    domain_set_t  [TbNumMst-1:0] domain_set;
+    domain_rule_t [TbNumMst-1:0] domain_rule;
     initial begin
         for (int i = 0; i < TbNumMst; i++) begin
-            domain_set[i].initiator = 1 << i;
-            domain_set[i].inner = ~(1 << i);
-            domain_set[i].outer = ~(1 << i);
+            domain_rule[i].initiator = 1 << i;
+            domain_rule[i].inner     = ~(1 << i);
+            domain_rule[i].outer     = ~(1 << i);
         end
     end
 
@@ -172,10 +173,10 @@ module tb_ace_ccu_top #(
     ) axi_dv_intf (clk);
 
     AXI_BUS #(
-        .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
-        .AXI_DATA_WIDTH ( AxiDataWidth     ),
-        .AXI_ID_WIDTH   ( AxiIdWidthSlave  ),
-        .AXI_USER_WIDTH ( AxiUserWidth     )
+        .AXI_ADDR_WIDTH ( AxiAddrWidth           ),
+        .AXI_DATA_WIDTH ( AxiDataWidth           ),
+        .AXI_ID_WIDTH   ( AxiIdWidthSlave        ),
+        .AXI_USER_WIDTH ( AxiUserWidth )
     ) axi_intf();
 
     MONITOR_BUS_DV #(
@@ -305,7 +306,7 @@ module tb_ace_ccu_top #(
         .AXI_ADDR_WIDTH ( AxiAddrWidth     ),
         .AXI_DATA_WIDTH ( AxiDataWidth     ),
         .AXI_ID_WIDTH   ( AxiIdWidthSlave ),
-        .AXI_USER_WIDTH ( AxiUserWidth     ),
+        .AXI_USER_WIDTH ( AxiUserWidth ),
         .APPL_DELAY     ( ApplTime         ),
         .ACQ_DELAY      ( TestTime         )
     ) axi_mem (
@@ -333,13 +334,13 @@ module tb_ace_ccu_top #(
     end
 
     ace_ccu_top_intf #(
-        .CCU_CFG      (CcuCfg)
+        .CCU_CFG (CcuCfg)
     ) ccu (
-        .clk_i        (clk),
-        .rst_ni       (rst_n),
-        .domain_set_i (domain_set),
-        .slv_ports    (ace_intf),
-        .snoop_ports  (snoop_intf),
-        .mst_port     (axi_intf)
+        .clk_i         (clk),
+        .rst_ni        (rst_n),
+        .domain_rule_i (domain_rule),
+        .slv           (ace_intf),
+        .snoop         (snoop_intf),
+        .mst           (axi_intf)
     );
 endmodule

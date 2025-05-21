@@ -1,7 +1,7 @@
-`include "axi/assign.svh"
-
 `ifndef ACE_CONVERT_SVH_
 `define ACE_CONVERT_SVH_
+
+`include "axi/assign.svh"
 
 `define __ACE_TO_AXI_R(__opt_as, __lhs, __lhs_sep, __rhs, __rhs_sep)     \
     __opt_as __lhs``__lhs_sep``id     = __rhs``__rhs_sep``id;            \
