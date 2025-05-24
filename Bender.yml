@@ -23,6 +23,7 @@ sources:
   - src/snoop_intf.sv
   # CCU src files
   - src/ccu/ace_ccu_pkg.sv
+  - src/ccu/ace_ccu_stack.sv
   - src/ccu/ace_ccu_cd_arbiter.sv
   - src/ccu/ace_ccu_backend.sv
   - src/ccu/ace_ccu_frontend.sv

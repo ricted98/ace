@@ -85,19 +85,19 @@ module ace_ccu_pos
     midend_t                                        midend_d;
 
 
-    logic                                           tid_take;
-    logic                                           tid_give;
-    logic                                           tid_left;
+    logic                                           tid_pop;
+    logic                                           tid_push;
+    logic                                           tid_list_empty;
     logic            [ CcuCfg.TransactionIdWidth:0] tid_credit_cnt;
-    logic            [ CcuCfg.TransactionIdWidth:0] tid_take_ptr;
-    logic            [ CcuCfg.TransactionIdWidth:0] tid_give_ptr;
+    logic            [ CcuCfg.TransactionIdWidth:0] tid_pop_ptr;
+    logic            [ CcuCfg.TransactionIdWidth:0] tid_push_ptr;
 
     tid_t            [CcuCfg.u.MaxTransactions-1:0] tid_stack_d;
     tid_t            [CcuCfg.u.MaxTransactions-1:0] tid_stack_q;
-    logic            [CcuCfg.u.MaxTransactions-1:0] tid_give_d;
-    logic            [CcuCfg.u.MaxTransactions-1:0] tid_give_q;
-    logic            [CcuCfg.u.MaxTransactions-1:0] tid_give_set;
-    logic            [CcuCfg.u.MaxTransactions-1:0] tid_give_clr;
+    logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_d;
+    logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_q;
+    logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_set;
+    logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_clr;
 
     tid_t                                           ax_block_tid;
     tid_t                                           arb_tid;
@@ -177,7 +177,7 @@ module ace_ccu_pos
     assign ax_block_acsnoop  = ax_block_is_write ? aw_acsnoop : ar_acsnoop;
     assign ax_block_domain   = ax_block_is_write ? aw_block_i.domain : ar_block_i.domain;
 
-    assign ax_block_stall    = !tid_left || inflight_addr_hit;
+    assign ax_block_stall    = tid_list_empty || inflight_addr_hit;
 
     assign slv_idx           = ax_block.id[CcuCfg.AxiMstIdWidth-1 : CcuCfg.u.AxiSlvIdWidth];
 
@@ -242,65 +242,39 @@ module ace_ccu_pos
     //  TID generation
     //--------------------
 
-    assign tid_take = midend_valid && midend_ready;
-
-    credit_counter #(
-        .NumCredits(CcuCfg.u.MaxTransactions)
-    ) u_tid_stack_credit_counter (
+    ace_ccu_stack #(
+        .FREE_LIST(1'b1),
+        .DEPTH    (CcuCfg.u.MaxTransactions)
+    ) u_tid_free_list (
         .clk_i,
         .rst_ni,
-        .credit_o     (tid_credit_cnt),
-        .credit_give_i(tid_give),
-        .credit_take_i(tid_take),
-        .credit_init_i(1'b0),
-        .credit_left_o(tid_left),
-        .credit_crit_o(),
-        .credit_full_o()
+        .flush_i(1'b0),
+        .full_o (),
+        .empty_o(tid_list_empty),
+        .usage_o(),
+        .data_i (arb_tid),
+        .push_i (tid_push),
+        .data_o (ax_block_tid),
+        .pop_i  (tid_pop)
     );
 
-    for (genvar i = 0; i < CcuCfg.u.MaxTransactions; i++) begin
-        always_ff @(posedge clk_i or negedge rst_ni) begin
-            if (!rst_ni) begin
-                tid_stack_q[i] <= tid_t'(i);
-                tid_give_q[i]  <= '0;
-            end else begin
-                tid_stack_q[i] <= tid_stack_d[i];
-                tid_give_q[i]  <= tid_give_d[i];
-            end
+    assign tid_pop = midend_valid && midend_ready;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            tid_push_q <= '0;
+        end else begin
+            tid_push_q <= tid_push_d;
         end
     end
-
-    always_comb begin
-        tid_take_ptr = tid_credit_cnt - 1;
-        tid_give_ptr = tid_credit_cnt;
-
-        if (tid_take && tid_give) begin
-            tid_give_ptr = tid_credit_cnt - 1;
-        end
-
-        if (!tid_left) begin
-            tid_take_ptr = '0;
-            tid_give_ptr = '0;
-        end
-    end
-
-    always_comb begin
-        tid_stack_d = tid_stack_q;
-
-        if (tid_give) begin
-            tid_stack_d[tid_give_ptr] = arb_tid;
-        end
-    end
-
-    assign ax_block_tid = tid_stack_q[tid_take_ptr];
 
     for (genvar i = 0; i < CcuCfg.u.MaxTransactions; i++) begin
         // A TID is set to be cleared the cycle all pending responses on its entry are cleared
-        assign tid_give_set[i] = |{inflight_valid_b_q[i], inflight_valid_r_q[i]} &&
+        assign tid_push_set[i] = |{inflight_valid_b_q[i], inflight_valid_r_q[i]} &&
             ~|{inflight_valid_b_d[i], inflight_valid_r_d[i]};
     end
 
-    assign tid_give_d = ~tid_give_clr & (tid_give_set | tid_give_q);
+    assign tid_push_d = ~tid_push_clr & (tid_push_set | tid_push_q);
 
     rr_arb_tree #(
         .NumIn    (CcuCfg.u.MaxTransactions),
@@ -308,15 +282,15 @@ module ace_ccu_pos
         .ExtPrio  (1'b1),
         .AxiVldRdy(1'b1),
         .LockIn   (1'b0)
-    ) u_tid_give_arbiter (
+    ) u_tid_push_arbiter (
         .clk_i,
         .rst_ni,
         .flush_i(1'b0),
         .rr_i   ('0),
-        .req_i  (tid_give_q),
-        .gnt_o  (tid_give_clr),
+        .req_i  (tid_push_q),
+        .gnt_o  (tid_push_clr),
         .data_i ('0),
-        .req_o  (tid_give),
+        .req_o  (tid_push),
         .gnt_i  (1'b1),
         .data_o (),
         .idx_o  (arb_tid)
