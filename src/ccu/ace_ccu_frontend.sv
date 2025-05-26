@@ -46,6 +46,9 @@ module ace_ccu_frontend
     output logic [CcuCfg.u.MaxTransactions-1:0] inflight_valid_b_clr_o
 );
 
+    slv_req_t  [CcuCfg.u.SlvPorts-1:0] slv_req_cut;
+    slv_resp_t [CcuCfg.u.SlvPorts-1:0] slv_resp_cut;
+
     slv_req_t  [CcuCfg.u.SlvPorts-1:0] slv_nonblock_req;
     slv_resp_t [CcuCfg.u.SlvPorts-1:0] slv_nonblock_resp;
     slv_req_t  [CcuCfg.u.SlvPorts-1:0] slv_block_req;
@@ -67,10 +70,32 @@ module ace_ccu_frontend
 
         logic aw_is_nonblock;
 
-        // Separate in each port blocking and non-blocking traffic
+        ace_cut #(
+            .BypassAw  (!CcuCfg.u.CutSlvReq),
+            .BypassW   (!CcuCfg.u.CutSlvReq),
+            .BypassB   (!CcuCfg.u.CutSlvResp),
+            .BypassAr  (!CcuCfg.u.CutSlvReq),
+            .BypassR   (!CcuCfg.u.CutSlvResp),
+            .BypassAck (1'b1),
+            .aw_chan_t (slv_aw_t),
+            .w_chan_t  (w_t),
+            .b_chan_t  (slv_b_t),
+            .ar_chan_t (slv_ar_t),
+            .r_chan_t  (slv_r_t),
+            .ace_req_t (slv_req_t),
+            .ace_resp_t(slv_resp_t)
+        ) u_ace_cut (
+            .clk_i,
+            .rst_ni,
+            .slv_req_i (slv_req_i[i]),
+            .slv_resp_o(slv_resp_o[i]),
+            .mst_req_o (slv_req_cut[i]),
+            .mst_resp_i(slv_resp_cut[i])
+        );
 
+        // Separate in each port blocking and non-blocking traffic
         assign aw_is_nonblock = aw_is_non_blocking(
-            slv_req_i[i].aw.bar[0], slv_req_i[i].aw.domain, slv_req_i[i].aw.snoop
+            slv_req_cut[i].aw.bar[0], slv_req_cut[i].aw.domain, slv_req_cut[i].aw.snoop
         );
 
         axi_demux_simple #(
@@ -86,8 +111,8 @@ module ace_ccu_frontend
             .clk_i,
             .rst_ni,
             .test_i         (1'b0),
-            .slv_req_i      (slv_req_i[i]),
-            .slv_resp_o     (slv_resp_o[i]),
+            .slv_req_i      (slv_req_cut[i]),
+            .slv_resp_o     (slv_resp_cut[i]),
             .slv_aw_select_i(aw_is_nonblock),
             .slv_ar_select_i('0),
             .mst_reqs_o     ({slv_nonblock_req[i], slv_block_req[i]}),
@@ -168,8 +193,8 @@ module ace_ccu_frontend
     for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_xack_fifos
         logic r_tid_push, b_tid_push;
 
-        assign r_tid_push = slv_resp_o[i].r_valid && slv_req_i[i].r_ready && slv_resp_o[i].r.last;
-        assign b_tid_push = slv_resp_o[i].b_valid && slv_req_i[i].b_ready;
+        assign r_tid_push = slv_resp_cut[i].r_valid && slv_req_cut[i].r_ready && slv_resp_cut[i].r.last;
+        assign b_tid_push = slv_resp_cut[i].b_valid && slv_req_cut[i].b_ready;
 
         stream_fifo #(
             .FALL_THROUGH(1'b0),
@@ -186,7 +211,7 @@ module ace_ccu_frontend
             .ready_o   (),
             .data_o    ({pos_r_tid[i], r_ignore[i]}),
             .valid_o   (),
-            .ready_i   (slv_req_i[i].rack)
+            .ready_i   (slv_req_cut[i].rack)
         );
 
         stream_fifo #(
@@ -204,7 +229,7 @@ module ace_ccu_frontend
             .ready_o   (),
             .data_o    ({pos_b_tid[i], b_ignore[i]}),
             .valid_o   (),
-            .ready_i   (slv_req_i[i].wack)
+            .ready_i   (slv_req_cut[i].wack)
         );
     end
 
@@ -213,8 +238,8 @@ module ace_ccu_frontend
         inflight_valid_b_clr_o = '0;
 
         for (int unsigned i = 0; i < CcuCfg.u.SlvPorts; i++) begin
-            if (slv_req_i[i].rack && !r_ignore[i]) inflight_valid_r_clr_o[pos_r_tid[i]] = 1'b1;
-            if (slv_req_i[i].wack && !b_ignore[i]) inflight_valid_b_clr_o[pos_b_tid[i]] = 1'b1;
+            if (slv_req_cut[i].rack && !r_ignore[i]) inflight_valid_r_clr_o[pos_r_tid[i]] = 1'b1;
+            if (slv_req_cut[i].wack && !b_ignore[i]) inflight_valid_b_clr_o[pos_b_tid[i]] = 1'b1;
         end
     end
 
