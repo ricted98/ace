@@ -21,6 +21,8 @@ sources:
   # Level 1
   - src/ace_intf.sv
   - src/snoop_intf.sv
+  # ACE ips
+  - src/ace_cut.sv
   # CCU src files
   - src/ccu/ace_ccu_pkg.sv
   - src/ccu/ace_ccu_stack.sv
