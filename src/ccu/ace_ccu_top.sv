@@ -395,47 +395,39 @@ module ace_ccu_top
     //  ACE/AXI cuts
     //--------------------
 
-    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_snoop_queues
-        spill_register #(
-            .T     (snoop_ac_t),
-            .Bypass(!CcuCfg.u.CutSnoopReq)
-        ) u_ac_queue (
-            .clk_i,
-            .rst_ni,
-            .valid_i(snoop_ac_valid[i]),
-            .ready_o(snoop_ac_ready[i]),
-            .data_i (snoop_ac[i]),
-            .valid_o(snoop_req_o[i].ac_valid),
-            .ready_i(snoop_resp_i[i].ac_ready),
-            .data_o (snoop_req_o[i].ac)
-        );
+    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_snoop_cut
 
-        spill_register #(
-            .T     (snoop_cr_t),
-            .Bypass(!CcuCfg.u.CutSnoopResp)
-        ) u_cr_queue (
-            .clk_i,
-            .rst_ni,
-            .valid_i(snoop_resp_i[i].cr_valid),
-            .ready_o(snoop_req_o[i].cr_ready),
-            .data_i (snoop_resp_i[i].cr_resp),
-            .valid_o(snoop_cr_valid[i]),
-            .ready_i(snoop_cr_ready[i]),
-            .data_o (snoop_cr[i])
-        );
+        snoop_req_t  snoop_req;
+        snoop_resp_t snoop_resp;
 
-        spill_register #(
-            .T     (snoop_cd_t),
-            .Bypass(!CcuCfg.u.CutSnoopResp)
-        ) u_cd_queue (
+        assign snoop_req.ac_valid = snoop_ac_valid[i];
+        assign snoop_ac_ready[i]  = snoop_resp.ac_ready;
+        assign snoop_req.ac       = snoop_ac[i];
+
+        assign snoop_cr_valid[i]  = snoop_resp.cr_valid;
+        assign snoop_req.cr_ready = snoop_cr_ready[i];
+        assign snoop_cr[i]        = snoop_resp.cr_resp;
+
+        assign snoop_cd_valid[i]  = snoop_resp.cd_valid;
+        assign snoop_req.cd_ready = snoop_cd_ready[i];
+        assign snoop_cd[i]        = snoop_resp.cd;
+
+        ace_snoop_cut #(
+            .BypassAc    (!CcuCfg.u.CutSnoopReq),
+            .BypassCr    (!CcuCfg.u.CutSnoopResp),
+            .BypassCd    (!CcuCfg.u.CutSnoopResp),
+            .ac_chan_t   (snoop_ac_t),
+            .cd_chan_t   (snoop_cd_t),
+            .cr_chan_t   (snoop_cr_t),
+            .snoop_req_t (snoop_req_t),
+            .snoop_resp_t(snoop_resp_t)
+        ) u_snoop_cut (
             .clk_i,
             .rst_ni,
-            .valid_i(snoop_resp_i[i].cd_valid),
-            .ready_o(snoop_req_o[i].cd_ready),
-            .data_i (snoop_resp_i[i].cd),
-            .valid_o(snoop_cd_valid[i]),
-            .ready_i(snoop_cd_ready[i]),
-            .data_o (snoop_cd[i])
+            .slv_req_i (snoop_req),
+            .slv_resp_o(snoop_resp),
+            .mst_req_o (snoop_req_o[i]),
+            .mst_resp_i(snoop_resp_i[i])
         );
     end
 
@@ -452,7 +444,7 @@ module ace_ccu_top
         .r_chan_t  (mst_r_t),
         .axi_req_t (mst_req_t),
         .axi_resp_t(mst_resp_t)
-    ) u_mst_queue (
+    ) u_mst_cut (
         .clk_i,
         .rst_ni,
         .slv_req_i (mst_req),

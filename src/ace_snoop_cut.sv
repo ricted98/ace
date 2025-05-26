@@ -16,67 +16,70 @@
 ///
 /// Breaks all combinatorial paths between its input and output.
 module ace_snoop_cut #(
-  // bypass enable
-  parameter bit  Bypass     = 1'b0,
-  // ACE snoop channel structs
-  parameter type  ac_chan_t = logic,
-  parameter type  cd_chan_t = logic,
-  parameter type  cr_chan_t = logic,
-  // ACE snoop request & response structs
-  parameter type  snoop_req_t  = logic,
-  parameter type  snoop_resp_t = logic
+    // bypass enable
+    parameter bit  Bypass       = 1'b0,
+    parameter bit  BypassAc     = Bypass,
+    parameter bit  BypassCr     = Bypass,
+    parameter bit  BypassCd     = Bypass,
+    // ACE snoop channel structs
+    parameter type ac_chan_t    = logic,
+    parameter type cd_chan_t    = logic,
+    parameter type cr_chan_t    = logic,
+    // ACE snoop request & response structs
+    parameter type snoop_req_t  = logic,
+    parameter type snoop_resp_t = logic
 ) (
-  input logic       clk_i,
-  input logic       rst_ni,
-  // salve port
-  input  snoop_req_t  slv_req_i,
-  output snoop_resp_t slv_resp_o,
-  // master port
-  output snoop_req_t  mst_req_o,
-  input  snoop_resp_t mst_resp_i
+    input  logic        clk_i,
+    input  logic        rst_ni,
+    // salve port
+    input  snoop_req_t  slv_req_i,
+    output snoop_resp_t slv_resp_o,
+    // master port
+    output snoop_req_t  mst_req_o,
+    input  snoop_resp_t mst_resp_i
 );
 
     // Snoop channels cut
     spill_register #(
-    .T       ( ac_chan_t ),
-    .Bypass  ( Bypass    )
+        .T     (ac_chan_t),
+        .Bypass(BypassAc)
     ) i_reg_ac (
-    .clk_i   ( clk_i               ),
-    .rst_ni  ( rst_ni              ),
-    .valid_i ( slv_req_i.ac_valid  ),
-    .ready_o ( slv_resp_o.ac_ready ),
-    .data_i  ( slv_req_i.ac        ),
-    .valid_o ( mst_req_o.ac_valid  ),
-    .ready_i ( mst_resp_i.ac_ready ),
-    .data_o  ( mst_req_o.ac        )
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .valid_i(slv_req_i.ac_valid),
+        .ready_o(slv_resp_o.ac_ready),
+        .data_i (slv_req_i.ac),
+        .valid_o(mst_req_o.ac_valid),
+        .ready_i(mst_resp_i.ac_ready),
+        .data_o (mst_req_o.ac)
     );
 
     spill_register #(
-    .T       ( cd_chan_t ),
-    .Bypass  ( Bypass    )
+        .T     (cd_chan_t),
+        .Bypass(BypassCd)
     ) i_reg_cd (
-    .clk_i   ( clk_i               ),
-    .rst_ni  ( rst_ni              ),
-    .valid_i ( mst_resp_i.cd_valid ),
-    .ready_o ( mst_req_o.cd_ready  ),
-    .data_i  ( mst_resp_i.cd       ),
-    .valid_o ( slv_resp_o.cd_valid ),
-    .ready_i ( slv_req_i.cd_ready  ),
-    .data_o  ( slv_resp_o.cd       )
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .valid_i(mst_resp_i.cd_valid),
+        .ready_o(mst_req_o.cd_ready),
+        .data_i (mst_resp_i.cd),
+        .valid_o(slv_resp_o.cd_valid),
+        .ready_i(slv_req_i.cd_ready),
+        .data_o (slv_resp_o.cd)
     );
 
     spill_register #(
-    .T       ( cr_chan_t ),
-    .Bypass  ( Bypass    )
+        .T     (cr_chan_t),
+        .Bypass(BypassCr)
     ) i_reg_cr (
-    .clk_i   ( clk_i               ),
-    .rst_ni  ( rst_ni              ),
-    .valid_i ( mst_resp_i.cr_valid ),
-    .ready_o ( mst_req_o.cr_ready  ),
-    .data_i  ( mst_resp_i.cr_resp  ),
-    .valid_o ( slv_resp_o.cr_valid ),
-    .ready_i ( slv_req_i.cr_ready  ),
-    .data_o  ( slv_resp_o.cr_resp  )
+        .clk_i  (clk_i),
+        .rst_ni (rst_ni),
+        .valid_i(mst_resp_i.cr_valid),
+        .ready_o(mst_req_o.cr_ready),
+        .data_i (mst_resp_i.cr_resp),
+        .valid_o(slv_resp_o.cr_valid),
+        .ready_i(slv_req_i.cr_ready),
+        .data_o (slv_resp_o.cr_resp)
     );
 
 endmodule
@@ -86,60 +89,72 @@ endmodule
 
 // interface wrapper
 module ace_snoop_cut_intf #(
-  // Bypass eneable
-  parameter bit          BYPASS     = 1'b0,
-  // The address width.
-  parameter int unsigned ADDR_WIDTH = 0,
-  // The data width.
-  parameter int unsigned DATA_WIDTH = 0
+    // Bypass eneable
+    parameter bit          BYPASS     = 1'b0,
+    parameter bit          BYPASS_AC  = BYPASS,
+    parameter bit          BYPASS_CR  = BYPASS,
+    parameter bit          BYPASS_CD  = BYPASS,
+    // The address width.
+    parameter int unsigned ADDR_WIDTH = 0,
+    // The data width.
+    parameter int unsigned DATA_WIDTH = 0
 ) (
-  input logic       clk_i  ,
-  input logic       rst_ni ,
-  SNOOP_BUS.Slave   in     ,
-  SNOOP_BUS.Master  out
+    input logic            clk_i,
+    input logic            rst_ni,
+          SNOOP_BUS.Slave  in,
+          SNOOP_BUS.Master out
 );
 
-  typedef logic [ADDR_WIDTH-1:0]   addr_t;
-  typedef logic [DATA_WIDTH-1:0]   data_t;
+    typedef logic [ADDR_WIDTH-1:0] addr_t;
+    typedef logic [DATA_WIDTH-1:0] data_t;
 
-  `SNOOP_TYPEDEF_ALL(snoop, addr_t, data_t)
+    `SNOOP_TYPEDEF_ALL(snoop, addr_t, data_t)
 
-  snoop_req_t  slv_req,  mst_req;
-  snoop_resp_t slv_resp, mst_resp;
+    snoop_req_t slv_req, mst_req;
+    snoop_resp_t slv_resp, mst_resp;
 
-  `SNOOP_ASSIGN_TO_REQ(slv_req, in)
-  `SNOOP_ASSIGN_FROM_RESP(in, slv_resp)
+    `SNOOP_ASSIGN_TO_REQ(slv_req, in)
+    `SNOOP_ASSIGN_FROM_RESP(in, slv_resp)
 
-  `SNOOP_ASSIGN_FROM_REQ(out, mst_req)
-  `SNOOP_ASSIGN_TO_RESP(mst_resp, out)
+    `SNOOP_ASSIGN_FROM_REQ(out, mst_req)
+    `SNOOP_ASSIGN_TO_RESP(mst_resp, out)
 
-  ace_snoop_cut #(
-    .Bypass       ( BYPASS ),
-    .ac_chan_t    (snoop_ac_chan_t),
-    .cd_chan_t    (snoop_cd_chan_t),
-    .cr_chan_t    (snoop_cr_chan_t),
-    .snoop_req_t  (snoop_req_t),
-    .snoop_resp_t (snoop_resp_t)
-  ) i_ace_snoop_cut (
-    .clk_i,
-    .rst_ni,
-    .slv_req_i  ( slv_req  ),
-    .slv_resp_o ( slv_resp ),
-    .mst_req_o  ( mst_req  ),
-    .mst_resp_i ( mst_resp )
-  );
+    ace_snoop_cut #(
+        .Bypass      (BYPASS),
+        .BypassAc    (BYPASS_AC),
+        .BypassCr    (BYPASS_CR),
+        .BypassCd    (BYPASS_CD),
+        .ac_chan_t   (snoop_ac_chan_t),
+        .cd_chan_t   (snoop_cd_chan_t),
+        .cr_chan_t   (snoop_cr_chan_t),
+        .snoop_req_t (snoop_req_t),
+        .snoop_resp_t(snoop_resp_t)
+    ) i_ace_snoop_cut (
+        .clk_i,
+        .rst_ni,
+        .slv_req_i (slv_req),
+        .slv_resp_o(slv_resp),
+        .mst_req_o (mst_req),
+        .mst_resp_i(mst_resp)
+    );
 
-  // Check the invariants.
-  // pragma translate_off
-  `ifndef VERILATOR
-  initial begin
-    assert (ADDR_WIDTH > 0) else $fatal(1, "Wrong addr width parameter");
-    assert (DATA_WIDTH > 0) else $fatal(1, "Wrong data width parameter");
-    assert (in.SNOOP_ADDR_WIDTH  == ADDR_WIDTH) else $fatal(1, "Wrong interface definition");
-    assert (in.SNOOP_DATA_WIDTH  == DATA_WIDTH) else $fatal(1, "Wrong interface definition");
-    assert (out.SNOOP_ADDR_WIDTH == ADDR_WIDTH) else $fatal(1, "Wrong interface definition");
-    assert (out.SNOOP_DATA_WIDTH == DATA_WIDTH) else $fatal(1, "Wrong interface definition");
-  end
-  `endif
-  // pragma translate_on
+    // Check the invariants.
+    // pragma translate_off
+`ifndef VERILATOR
+    initial begin
+        assert (ADDR_WIDTH > 0)
+        else $fatal(1, "Wrong addr width parameter");
+        assert (DATA_WIDTH > 0)
+        else $fatal(1, "Wrong data width parameter");
+        assert (in.SNOOP_ADDR_WIDTH == ADDR_WIDTH)
+        else $fatal(1, "Wrong interface definition");
+        assert (in.SNOOP_DATA_WIDTH == DATA_WIDTH)
+        else $fatal(1, "Wrong interface definition");
+        assert (out.SNOOP_ADDR_WIDTH == ADDR_WIDTH)
+        else $fatal(1, "Wrong interface definition");
+        assert (out.SNOOP_DATA_WIDTH == DATA_WIDTH)
+        else $fatal(1, "Wrong interface definition");
+    end
+`endif
+    // pragma translate_on
 endmodule

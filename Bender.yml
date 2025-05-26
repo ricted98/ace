@@ -23,6 +23,7 @@ sources:
   - src/snoop_intf.sv
   # ACE ips
   - src/ace_cut.sv
+  - src/ace_snoop_cut.sv
   # CCU src files
   - src/ccu/ace_ccu_pkg.sv
   - src/ccu/ace_ccu_stack.sv
