@@ -348,7 +348,7 @@ module ace_ccu_backend
             end
 
             credit_counter #(
-                .NumCredits     (CcuCfg.u.MaxReadTransactions),
+                .NumCredits     (CcuCfg.u.MaxTransactions),
                 .InitCreditEmpty(1'b0)
             ) u_credit_counter (
                 .clk_i,

@@ -12,14 +12,18 @@
 package ace_ccu_pkg;
 
     typedef struct packed {
-        // General
+        // Number of slv ports
         int unsigned SlvPorts;
+        // Maximum blocking inflight transactions
         int unsigned MaxTransactions;
-        int unsigned MaxReadTransactions;
-        int unsigned FrontendArFifoDepth;
-        int unsigned FrontendAwFifoDepth;
-        int unsigned FrontendWFifoDepth;
+        // Blocking W channel buffer size
+        int unsigned BlockingWFifoDepth;
+        // AXI/ACE slv inflight transactions have
+        // unique IDs
         bit          AxiUniqueIds;
+        // If inflights IDs are not unique, use the
+        // following bits to perform ID lookups
+        // and prevent reordering
         int unsigned AxiIdLookupBits;
         // AXI/ACE parameters
         int unsigned AxiAddrWidth;

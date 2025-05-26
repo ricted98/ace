@@ -256,7 +256,7 @@ module ace_ccu_top
     // W buffer
     stream_fifo #(
         .FALL_THROUGH(1'b0),
-        .DEPTH       (CcuCfg.u.FrontendWFifoDepth),
+        .DEPTH       (CcuCfg.u.BlockingWFifoDepth),
         .T           (w_t)
     ) u_w_fifo (
         .clk_i,
@@ -398,7 +398,7 @@ module ace_ccu_top
     for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_snoop_queues
         spill_register #(
             .T     (snoop_ac_t),
-            .Bypass(CcuCfg.u.CutSnoopReq)
+            .Bypass(!CcuCfg.u.CutSnoopReq)
         ) u_ac_queue (
             .clk_i,
             .rst_ni,
@@ -412,7 +412,7 @@ module ace_ccu_top
 
         spill_register #(
             .T     (snoop_cr_t),
-            .Bypass(CcuCfg.u.CutSnoopResp)
+            .Bypass(!CcuCfg.u.CutSnoopResp)
         ) u_cr_queue (
             .clk_i,
             .rst_ni,
@@ -426,7 +426,7 @@ module ace_ccu_top
 
         spill_register #(
             .T     (snoop_cd_t),
-            .Bypass(CcuCfg.u.CutSnoopResp)
+            .Bypass(!CcuCfg.u.CutSnoopResp)
         ) u_cd_queue (
             .clk_i,
             .rst_ni,
@@ -440,11 +440,11 @@ module ace_ccu_top
     end
 
     axi_cut #(
-        .BypassAw  (CcuCfg.u.CutMstReq),
-        .BypassW   (CcuCfg.u.CutMstReq),
-        .BypassB   (CcuCfg.u.CutMstResp),
-        .BypassAr  (CcuCfg.u.CutMstReq),
-        .BypassR   (CcuCfg.u.CutMstResp),
+        .BypassAw  (!CcuCfg.u.CutMstReq),
+        .BypassW   (!CcuCfg.u.CutMstReq),
+        .BypassB   (!CcuCfg.u.CutMstResp),
+        .BypassAr  (!CcuCfg.u.CutMstReq),
+        .BypassR   (!CcuCfg.u.CutMstResp),
         .aw_chan_t (mst_aw_t),
         .w_chan_t  (w_t),
         .b_chan_t  (mst_b_t),

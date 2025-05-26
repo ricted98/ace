@@ -60,10 +60,7 @@ module tb_ace_ccu_top #(
     localparam ace_ccu_pkg::ace_ccu_user_cfg_t CcuUserCfg = '{
         SlvPorts            : TbNumMst,
         MaxTransactions     : 8,
-        MaxReadTransactions : 8,
-        FrontendArFifoDepth : 2,
-        FrontendAwFifoDepth : 2,
-        FrontendWFifoDepth  : 4,
+        BlockingWFifoDepth  : 4,
         AxiUniqueIds        : 0,
         AxiIdLookupBits     : 3,
         AxiAddrWidth        : AxiAddrWidth,
