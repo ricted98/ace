@@ -138,9 +138,7 @@ module ace_ccu_backend
     resp_metadata_t                                            r_metadata_in;
     resp_metadata_t                                            b_metadata_in;
     logic                                                      r_metadata_push;
-    logic                                                      r_metadata_pop;
     logic                                                      b_metadata_push;
-    logic                                                      b_metadata_pop;
 
     // ~> stall if an ID reordering hazard is detected
     // TODO: head of line stalling, optimize
@@ -572,8 +570,6 @@ module ace_ccu_backend
         end
     end
 
-    assign r_metadata_pop = r_valid_i && r_ready_o && r_i.last;
-
     id_queue #(
         .ID_WIDTH           (CcuCfg.AxiCcuIdWidth),
         .CAPACITY           (CcuCfg.u.MaxTransactions),
@@ -593,8 +589,8 @@ module ace_ccu_backend
         .exists_o        (),
         .exists_gnt_o    (),
         .oup_id_i        (r_i.id),
-        .oup_pop_i       (1'b1),
-        .oup_req_i       (r_metadata_pop),
+        .oup_pop_i       (r_ready_o && r_i.last),
+        .oup_req_i       (r_valid_i),
         .oup_data_o      (r_metadata_out),
         .oup_data_valid_o(),
         .oup_gnt_o       ()
@@ -602,7 +598,6 @@ module ace_ccu_backend
 
     assign b_metadata_push = aw_valid_o && aw_ready_i;
     assign b_metadata_in   = aw_metadata;
-    assign b_metadata_pop  = b_valid_i && b_ready_o;
 
     id_queue #(
         .ID_WIDTH           (CcuCfg.AxiCcuIdWidth),
@@ -623,8 +618,8 @@ module ace_ccu_backend
         .exists_o        (),
         .exists_gnt_o    (),
         .oup_id_i        (b_i.id),
-        .oup_pop_i       (1'b1),
-        .oup_req_i       (b_metadata_pop),
+        .oup_pop_i       (b_ready_o),
+        .oup_req_i       (b_valid_i),
         .oup_data_o      (b_metadata_out),
         .oup_data_valid_o(),
         .oup_gnt_o       ()
