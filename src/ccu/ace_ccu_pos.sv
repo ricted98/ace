@@ -78,7 +78,7 @@ module ace_ccu_pos
 
     logic            [  CcuCfg.SlvPortIdxWidth-1:0] slv_idx;
 
-    logic            [           CcuCfg.u.SlvPorts] ac_sel_bv;
+    logic            [       CcuCfg.u.SlvPorts-1:0] ac_sel_bv;
 
     logic                                           midend_valid;
     logic                                           midend_ready;
@@ -122,22 +122,29 @@ module ace_ccu_pos
     //  Blocking path
     //--------------------
 
+    // AW generates a snoop transaction
     assign aw_snooping = aw_is_coherent(aw_block_i.bar[0], aw_block_i.domain, aw_block_i.snoop);
+    // ACSNOOP computed from AWSNOOP
     assign aw_acsnoop = aw_acsnoop_map(aw_block_i.bar[0], aw_block_i.domain, aw_block_i.snoop);
+    // AR generates a snoop transaction
     assign ar_snooping = ar_is_coherent(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop
     ) || ar_is_cache_maintenance(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop
     );
+    // ACSNOOP computed from ARSNOOP
     assign ar_acsnoop = ar_acsnoop_map(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop, ar_block_i.lock
     );
+    // Read transaction can accept a cacheline in Dirty state
     assign ar_accepts_dirty = ar_resp_accepts_dirty(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop
     );
+    // Read transaction can accept a cacheline in Dirty and Shared state
     assign ar_accepts_dirty_shared = ar_resp_accepts_dirty_shared(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop
     );
+    // Read transaction can accept a cacheline in Shared state
     assign ar_accepts_shared = ar_resp_accepts_shared(
         ar_block_i.bar[0], ar_block_i.domain, ar_block_i.snoop
     );
@@ -179,7 +186,7 @@ module ace_ccu_pos
 
     assign ax_block_stall    = tid_list_empty || inflight_addr_hit;
 
-    assign slv_idx           = ax_block.id[CcuCfg.AxiMstIdWidth-1 : CcuCfg.u.AxiSlvIdWidth];
+    assign slv_idx           = ax_block.id[CcuCfg.AxiCcuIdWidth-1 : CcuCfg.u.AxiSlvIdWidth];
 
     always_comb begin
         ac_sel_bv = '0;
@@ -309,9 +316,13 @@ module ace_ccu_pos
         inflight_valid_b_set = '0;
 
         if (midend_valid && midend_ready) begin
+            // The midend register is being written into
+            // An R response is expected upon a AR transaction or a AW ATOP with R response
             inflight_valid_r_set[ax_block_tid] = !ax_block_is_write ||
                 ax_block.atop[axi_pkg::ATOP_R_RESP];
+            // A B response is expected upon a AW transaction
             inflight_valid_b_set[ax_block_tid] = ax_block_is_write;
+            // Save only the bits of the cacheline address
             inflight_addr_d[ax_block_tid] = ax_block.addr >> CcuCfg.CachelineBytesIdxWidth;
             inflight_updated_d = 1'b1;
         end
