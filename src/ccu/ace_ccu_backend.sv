@@ -137,11 +137,11 @@ module ace_ccu_backend
     resp_metadata_t                                            r_metadata_out;
     resp_metadata_t                                            b_metadata_out;
     resp_metadata_t                                            r_metadata_in;
-    logic [CcuCfg.AxiCcuIdWidth-1:0]                           r_metadata_id_in;
+    logic           [                CcuCfg.AxiCcuIdWidth-1:0] r_metadata_id_in;
     resp_metadata_t                                            b_metadata_in;
     logic                                                      r_metadata_push;
     logic                                                      b_metadata_push;
-    logic [CcuCfg.AxiCcuIdWidth-1:0]                           b_metadata_id_in;
+    logic           [                CcuCfg.AxiCcuIdWidth-1:0] b_metadata_id_in;
 
     // ~> stall if an ID reordering hazard is detected
     // TODO: head of line stalling, optimize
@@ -364,7 +364,8 @@ module ace_ccu_backend
             );
 
             // Take a credit upon a regular read transaction or when an ATOP AW transaction generates also a response on the R channel
-            assign credit_take = backend_valid_i && backend_ready_o && ax_id_lookup_onehot[i] && (!backend_i.ax_is_write || aw_atop_r_resp);
+            assign credit_take = backend_valid_i && backend_ready_o && ax_id_lookup_onehot[i]
+                                && (!backend_i.ax_is_write || aw_atop_r_resp);
             assign credit_give = r_valid_o && r_ready_i && r_o.last && r_id_lookup_onehot[i];
 
             assign ax_id_hazard_onehot[i] = |{
@@ -555,18 +556,18 @@ module ace_ccu_backend
     always_comb begin : comb_r_metadata_in_mux
         // Regular AR operations
         // ~> use AR metadata
-        r_metadata_in   = ar_metadata;
+        r_metadata_in    = ar_metadata;
         // ~> use AR handshake to push metadata
-        r_metadata_push = ar_valid_o && ar_ready_i;
+        r_metadata_push  = ar_valid_o && ar_ready_i;
         // ~> use AR id to tag metadata
         r_metadata_id_in = ar_o.id;
 
         if (backend_i.ax_is_write && backend_i.ax.atop[axi_pkg::ATOP_R_RESP]) begin
             // ATOP injection
             // ~> use AW metadata
-            r_metadata_in   = b_metadata_in;
+            r_metadata_in    = b_metadata_in;
             // ~> use AW handshake to push metadata
-            r_metadata_push = b_metadata_push;
+            r_metadata_push  = b_metadata_push;
             // ~> use AW id to tag metadata
             r_metadata_id_in = b_metadata_id_in;
         end

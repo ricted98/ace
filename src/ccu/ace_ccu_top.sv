@@ -466,8 +466,8 @@ module ace_ccu_top_intf
     input logic                                    clk_i,
     input logic                                    rst_ni,
     input domain_rule_t   [CCU_CFG.u.SlvPorts-1:0] domain_rule_i,
-          ACE_BUS.Slave                            slv          [CCU_CFG.u.SlvPorts-1:0],
-          SNOOP_BUS.Slave                          snoop        [CCU_CFG.u.SlvPorts-1:0],
+          ACE_BUS.Slave                            slv          [CCU_CFG.u.SlvPorts],
+          SNOOP_BUS.Slave                          snoop        [CCU_CFG.u.SlvPorts],
           AXI_BUS.Master                           mst
 );
 
@@ -508,7 +508,7 @@ module ace_ccu_top_intf
     snoop_req_t  [CCU_CFG.u.SlvPorts-1:0] snoop_req;
     snoop_resp_t [CCU_CFG.u.SlvPorts-1:0] snoop_resp;
 
-    for (genvar i = 0; i < CCU_CFG.u.SlvPorts; i++) begin
+    for (genvar i = 0; i < CCU_CFG.u.SlvPorts; i++) begin : gen_bus_assignments
         `ACE_ASSIGN_TO_REQ(slv_req[i], slv[i])
         `ACE_ASSIGN_FROM_RESP(slv[i], slv_resp[i])
         `SNOOP_ASSIGN_FROM_REQ(snoop[i], snoop_req[i])

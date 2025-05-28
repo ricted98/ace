@@ -64,7 +64,7 @@ module ace_ccu_midend
         end
     end
 
-    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin
+    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_cr_data_transfer_bv
         assign cr_data_transfer_bv[i] = midend_i.cr_sel_bv[i] && cr_i[i].DataTransfer;
     end
 

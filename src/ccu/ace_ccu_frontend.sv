@@ -66,7 +66,7 @@ module ace_ccu_frontend
     // Non-blocking traffic is expected to proceed even when the snoop
     // interface is stalling
 
-    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin
+    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_slv_demux
 
         logic aw_is_nonblock;
         logic ar_is_read_no_snoop;
@@ -99,7 +99,9 @@ module ace_ccu_frontend
             slv_req_cut[i].aw.bar[0], slv_req_cut[i].aw.domain, slv_req_cut[i].aw.snoop
         );
 
-        assign ar_is_read_no_snoop = is_read_no_snoop(slv_req_cut[i].ar.bar[0], slv_req_cut[i].ar.domain, slv_req_cut[i].ar.snoop);
+        assign ar_is_read_no_snoop = is_read_no_snoop(
+            slv_req_cut[i].ar.bar[0], slv_req_cut[i].ar.domain, slv_req_cut[i].ar.snoop
+        );
 
         axi_demux_simple #(
             .AxiIdWidth (CcuCfg.u.AxiSlvIdWidth),
@@ -196,7 +198,8 @@ module ace_ccu_frontend
     for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_xack_fifos
         logic r_tid_push, b_tid_push;
 
-        assign r_tid_push = slv_resp_cut[i].r_valid && slv_req_cut[i].r_ready && slv_resp_cut[i].r.last;
+        assign r_tid_push = slv_resp_cut[i].r_valid && slv_req_cut[i].r_ready
+                            && slv_resp_cut[i].r.last;
         assign b_tid_push = slv_resp_cut[i].b_valid && slv_req_cut[i].b_ready;
 
         stream_fifo #(

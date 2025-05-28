@@ -60,7 +60,7 @@ module ace_ccu_stack #(
         .credit_full_o(full_o)
     );
 
-    for (genvar i = 0; i < DEPTH; i++) begin
+    for (genvar i = 0; i < DEPTH; i++) begin : gen_stack_regs
         always_ff @(posedge clk_i or negedge rst_ni) begin
             if (!rst_ni) begin
                 stack_q[i] <= FREE_LIST ? DATA_WIDTH'(i) : '0;

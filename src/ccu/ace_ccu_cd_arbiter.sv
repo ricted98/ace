@@ -62,7 +62,7 @@ module ace_ccu_cd_arbiter
         .ready_i    (cd_sel_fork_out_ready & cd_last)
     );
 
-    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin
+    for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin : gen_cd_filter
 
         assign cd_last[i] = cd_i[i].last;
 

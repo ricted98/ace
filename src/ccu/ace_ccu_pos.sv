@@ -188,7 +188,7 @@ module ace_ccu_pos
         ac_sel_bv = '0;
 
         if (ax_block_snooping) begin
-            case (ax_block_domain)
+            unique case (ax_block_domain)
                 NonShareable:   ac_sel_bv = '0;
                 InnerShareable: ac_sel_bv = domain_rule_i[slv_idx].inner;
                 OuterShareable: ac_sel_bv = domain_rule_i[slv_idx].outer;
@@ -212,7 +212,8 @@ module ace_ccu_pos
         .ready_i    ({midend_ready, ac_ready_i})
     );
 
-    assign midend_handshake_d = !(ax_block_valid && ax_block_ready) && ((midend_valid && midend_ready) || midend_handshake_q);
+    assign midend_handshake_d = !(ax_block_valid && ax_block_ready)
+                                && ((midend_valid && midend_ready) || midend_handshake_q);
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -280,7 +281,7 @@ module ace_ccu_pos
         end
     end
 
-    for (genvar i = 0; i < CcuCfg.u.MaxTransactions; i++) begin
+    for (genvar i = 0; i < CcuCfg.u.MaxTransactions; i++) begin : gen_tid_push_set
         // A TID is set to be cleared the cycle all pending responses on its entry are cleared
         assign tid_push_set[i] = |{inflight_valid_b_q[i], inflight_valid_r_q[i]} &&
             ~|{inflight_valid_b_d[i], inflight_valid_r_d[i]};
