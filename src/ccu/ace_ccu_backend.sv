@@ -582,7 +582,7 @@ module ace_ccu_backend
     ) u_r_metadata_queue (
         .clk_i,
         .rst_ni,
-        .inp_id_i        (ar_o.id),
+        .inp_id_i        (r_metadata_id_in),
         .inp_data_i      (r_metadata_in),
         .inp_req_i       (r_metadata_push),
         .inp_gnt_o       (),
