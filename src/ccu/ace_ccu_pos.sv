@@ -88,12 +88,7 @@ module ace_ccu_pos
     logic                                           tid_pop;
     logic                                           tid_push;
     logic                                           tid_list_empty;
-    logic            [ CcuCfg.TransactionIdWidth:0] tid_credit_cnt;
-    logic            [ CcuCfg.TransactionIdWidth:0] tid_pop_ptr;
-    logic            [ CcuCfg.TransactionIdWidth:0] tid_push_ptr;
 
-    tid_t            [CcuCfg.u.MaxTransactions-1:0] tid_stack_d;
-    tid_t            [CcuCfg.u.MaxTransactions-1:0] tid_stack_q;
     logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_d;
     logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_q;
     logic            [CcuCfg.u.MaxTransactions-1:0] tid_push_set;
@@ -112,8 +107,9 @@ module ace_ccu_pos
     logic            [CcuCfg.u.MaxTransactions-1:0] inflight_valid_r_d;
     logic            [CcuCfg.u.MaxTransactions-1:0] inflight_valid_r_set;
     logic                                           inflight_addr_hit;
-    logic                                           inflight_updated_d;
-    logic                                           inflight_updated_q;
+
+    logic                                           midend_handshake_d;
+    logic                                           midend_handshake_q;
 
     ac_t                                            ac;
 
@@ -184,7 +180,7 @@ module ace_ccu_pos
     assign ax_block_acsnoop  = ax_block_is_write ? aw_acsnoop : ar_acsnoop;
     assign ax_block_domain   = ax_block_is_write ? aw_block_i.domain : ar_block_i.domain;
 
-    assign ax_block_stall    = tid_list_empty || inflight_addr_hit;
+    assign ax_block_stall    = !midend_handshake_q && (tid_list_empty || inflight_addr_hit);
 
     assign slv_idx           = ax_block.id[CcuCfg.AxiCcuIdWidth-1 : CcuCfg.u.AxiSlvIdWidth];
 
@@ -216,6 +212,16 @@ module ace_ccu_pos
         .ready_i    ({midend_ready, ac_ready_i})
     );
 
+    assign midend_handshake_d = !(ax_block_valid && ax_block_ready) && ((midend_valid && midend_ready) || midend_handshake_q);
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            midend_handshake_q <= 1'b0;
+        end else begin
+            midend_handshake_q <= midend_handshake_d;
+        end
+    end
+
     assign ac = '{addr: ax_block.addr, snoop: ax_block_acsnoop, prot: '0};
     assign ac_o = {CcuCfg.u.SlvPorts{ac}};
 
@@ -243,7 +249,6 @@ module ace_ccu_pos
         .ready_i(midend_ready_i),
         .data_o (midend_o)
     );
-
 
     //--------------------
     //  TID generation
@@ -303,14 +308,12 @@ module ace_ccu_pos
         .idx_o  (arb_tid)
     );
 
-
     //--------------------
     //  Addr tracker
     //--------------------
 
     always_comb begin
         inflight_addr_d      = inflight_addr_q;
-        inflight_updated_d   = inflight_updated_q;
 
         inflight_valid_r_set = '0;
         inflight_valid_b_set = '0;
@@ -324,11 +327,6 @@ module ace_ccu_pos
             inflight_valid_b_set[ax_block_tid] = ax_block_is_write;
             // Save only the bits of the cacheline address
             inflight_addr_d[ax_block_tid] = ax_block.addr >> CcuCfg.CachelineBytesIdxWidth;
-            inflight_updated_d = 1'b1;
-        end
-
-        if (ax_block_valid && ax_block_ready) begin
-            inflight_updated_d = 1'b0;
         end
     end
 
@@ -342,12 +340,10 @@ module ace_ccu_pos
             inflight_addr_q    <= '0;
             inflight_valid_b_q <= '0;
             inflight_valid_r_q <= '0;
-            inflight_updated_q <= 1'b0;
         end else begin
             inflight_addr_q    <= inflight_addr_d;
             inflight_valid_b_q <= inflight_valid_b_d;
             inflight_valid_r_q <= inflight_valid_r_d;
-            inflight_updated_q <= inflight_updated_d;
         end
     end
 
@@ -360,84 +356,6 @@ module ace_ccu_pos
                     inflight_addr_q[i];
             end
         end
-
-        if (inflight_updated_q) begin
-            inflight_addr_hit = 1'b0;
-        end
     end
-
-    /*
-
-    cacheline_addr_t [CcuCfg.u.MaxSnoopTransactions-1:0] snoop_inflight_addr_q, snoop_inflight_addr_d;
-    logic            [CcuCfg.u.MaxSnoopTransactions-1:0] snoop_inflight_valid_q, snoop_inflight_valid_d;
-    logic                                                snoop_inflight_lock_q, snoop_inflight_lock_d;
-
-    counter #(
-        .WIDTH (CcuCfg.u.MaxSnoopTransactions),
-    ) u_ac_cnt (
-        .clk_i,
-        .rst_ni,
-        .clear_i    (1'b0),
-        .en_i       (ac_cnt_en),
-        .load_i     (1'b0),
-        .down_i     (1'b0),
-        .d_i        ('0),
-        .q_o        (ac_cnt),
-        .overflow_o ()
-    );
-
-    counter #(
-        .WIDTH (CcuCfg.u.MaxSnoopTransactions),
-    ) u_cr_cnt (
-        .clk_i,
-        .rst_ni,
-        .clear_i    (1'b0),
-        .en_i       (cr_cnt_en),
-        .load_i     (1'b0),
-        .down_i     (1'b0),
-        .d_i        ('0),
-        .q_o        (cr_cnt),
-        .overflow_o ()
-    );
-
-    assign snoop_inflight_full = !snoop_inflight_lock_q && &snoop_inflight_valid_q;
-
-    always_comb begin
-        snoop_inflight_addr_d = snoop_inflight_addr_q;
-        snoop_inflight_valid_d = snoop_inflight_valid_q;
-        snoop_inflight_lock_d = snoop_inflight_lock_q;
-
-        ac_cnt_en = 1'b0;
-        cr_cnt_en = 1'b0;
-
-        if (!snoop_inflight_lock_q && ax_block_snooping && ax_block_valid) begin
-            snoop_inflight_addr_d[ac_cnt]  = ax_block.addr >> CcuCfg.CachelineBytesIdxWidth;
-            snoop_inflight_valid_d[ac_cnt] = 1'b1;
-            snoop_inflight_lock_d = 1'b1;
-            ac_cnt_en = 1'b1;
-        end
-
-        if (ax_block_valid && ax_block_ready) begin
-            snoop_inflight_lock_d = 1'b0;
-        end
-
-        if (snoop_inflight_clr_i) begin
-            snoop_inflight_valid_d[cr_cnt] = 1'b0;
-            cr_cnt_en = 1'b1;
-        end
-    end
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            snoop_inflight_addr_q <= '0;
-            snoop_inflight_valid_q <= '0;
-            snoop_inflight_lock_q <= '0;
-        end else begin
-            snoop_inflight_addr_q <= snoop_inflight_addr_d;
-            snoop_inflight_valid_q <= snoop_inflight_valid_d;
-            snoop_inflight_lock_q <= snoop_inflight_lock_d;
-        end
-    end
-    */
 
 endmodule

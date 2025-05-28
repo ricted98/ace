@@ -67,6 +67,7 @@ module ace_ccu_backend
     output logic                             b_ready_o
 );
 
+    // Typedefs
     typedef struct packed {
         logic is_write_back;
         tid_t tid;
@@ -136,9 +137,11 @@ module ace_ccu_backend
     resp_metadata_t                                            r_metadata_out;
     resp_metadata_t                                            b_metadata_out;
     resp_metadata_t                                            r_metadata_in;
+    logic [CcuCfg.AxiCcuIdWidth-1:0]                           r_metadata_id_in;
     resp_metadata_t                                            b_metadata_in;
     logic                                                      r_metadata_push;
     logic                                                      b_metadata_push;
+    logic [CcuCfg.AxiCcuIdWidth-1:0]                           b_metadata_id_in;
 
     // ~> stall if an ID reordering hazard is detected
     // TODO: head of line stalling, optimize
@@ -360,19 +363,14 @@ module ace_ccu_backend
                 .credit_full_o(credit_full)
             );
 
-            assign credit_take = backend_valid_i && backend_ready_o && ax_id_lookup_onehot[i] && |{
-                // ~> regular memory AR transaction
-                backend_i.ar_sel,
-                // ~> CD is providing the response
-                backend_i.cd_sel.read,
-                // ~> ATOP memory AW transaction expecting also an R response
-                backend_i.aw_sel && aw_atop_r_resp};
+            // Take a credit upon a regular read transaction or when an ATOP AW transaction generates also a response on the R channel
+            assign credit_take = backend_valid_i && backend_ready_o && ax_id_lookup_onehot[i] && (!backend_i.ax_is_write || aw_atop_r_resp);
             assign credit_give = r_valid_o && r_ready_i && r_o.last && r_id_lookup_onehot[i];
 
             assign ax_id_hazard_onehot[i] = |{
                 // ~> no credits left for this ID
                 !credit_left,
-                // ~> inflight memory transactions with the same ID but different responder
+                // ~> inflight memory transactions with the same ID but different responders
                 !credit_full && (is_cd_q != backend_i.cd_sel.read)};
         end
     end
@@ -554,12 +552,14 @@ module ace_ccu_backend
     // - TID
     // - is write back, i.e. the CCU issued the transaction
 
-    always_comb begin
+    always_comb begin : comb_r_metadata_in_mux
         // Regular AR operations
         // ~> use AR metadata
         r_metadata_in   = ar_metadata;
         // ~> use AR handshake to push metadata
         r_metadata_push = ar_valid_o && ar_ready_i;
+        // ~> use AR id to tag metadata
+        r_metadata_id_in = ar_o.id;
 
         if (backend_i.ax_is_write && backend_i.ax.atop[axi_pkg::ATOP_R_RESP]) begin
             // ATOP injection
@@ -567,6 +567,8 @@ module ace_ccu_backend
             r_metadata_in   = b_metadata_in;
             // ~> use AW handshake to push metadata
             r_metadata_push = b_metadata_push;
+            // ~> use AW id to tag metadata
+            r_metadata_id_in = b_metadata_id_in;
         end
     end
 
@@ -580,7 +582,7 @@ module ace_ccu_backend
         .clk_i,
         .rst_ni,
         .inp_id_i        (ar_o.id),
-        .inp_data_i      (ar_metadata),
+        .inp_data_i      (r_metadata_in),
         .inp_req_i       (r_metadata_push),
         .inp_gnt_o       (),
         .exists_data_i   ('0),
@@ -596,8 +598,9 @@ module ace_ccu_backend
         .oup_gnt_o       ()
     );
 
-    assign b_metadata_push = aw_valid_o && aw_ready_i;
-    assign b_metadata_in   = aw_metadata;
+    assign b_metadata_push  = aw_valid_o && aw_ready_i;
+    assign b_metadata_in    = aw_metadata;
+    assign b_metadata_id_in = aw_o.id;
 
     id_queue #(
         .ID_WIDTH           (CcuCfg.AxiCcuIdWidth),
@@ -608,7 +611,7 @@ module ace_ccu_backend
     ) u_w_metadata_queue (
         .clk_i,
         .rst_ni,
-        .inp_id_i        (aw_o.id),
+        .inp_id_i        (b_metadata_id_in),
         .inp_data_i      (b_metadata_in),
         .inp_req_i       (b_metadata_push),
         .inp_gnt_o       (),

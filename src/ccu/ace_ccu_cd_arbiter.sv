@@ -114,15 +114,22 @@ module ace_ccu_cd_arbiter
         cd_first_resp_d       = cd_first_resp_q;
 
         if (!cd_first_resp_valid_q && !cd_first_resp_empty) begin
+            // There is a valid response and the first responder
+            // has not been found yet
+            // ~> save the LZC index
             cd_first_resp_d       = cd_first_resp_idx;
+            // ~> mark the first responder as valid
             cd_first_resp_valid_d = 1'b1;
         end
 
         if (cd_sel_valid_i && cd_sel_ready_o) begin
+            // All CD channels have been processed
+            // ~> clean first responder valid
             cd_first_resp_valid_d = 1'b0;
         end
     end
 
+    // Drop all selected CD channels which responded after the first responder
     assign cd_drop = cd_first_resp_valid_q ? ~(CcuCfg.u.SlvPorts'(1) << cd_first_resp_q) : '0;
 
     always_ff @(posedge clk_i or negedge rst_ni) begin

@@ -69,6 +69,7 @@ module ace_ccu_frontend
     for (genvar i = 0; i < CcuCfg.u.SlvPorts; i++) begin
 
         logic aw_is_nonblock;
+        logic ar_is_read_no_snoop;
 
         ace_cut #(
             .BypassAw  (!CcuCfg.u.CutSlvReq),
@@ -98,6 +99,8 @@ module ace_ccu_frontend
             slv_req_cut[i].aw.bar[0], slv_req_cut[i].aw.domain, slv_req_cut[i].aw.snoop
         );
 
+        assign ar_is_read_no_snoop = is_read_no_snoop(slv_req_cut[i].ar.bar[0], slv_req_cut[i].ar.domain, slv_req_cut[i].ar.snoop);
+
         axi_demux_simple #(
             .AxiIdWidth (CcuCfg.u.AxiSlvIdWidth),
             .AtopSupport(1'b1),
@@ -114,7 +117,7 @@ module ace_ccu_frontend
             .slv_req_i      (slv_req_cut[i]),
             .slv_resp_o     (slv_resp_cut[i]),
             .slv_aw_select_i(aw_is_nonblock),
-            .slv_ar_select_i('0),
+            .slv_ar_select_i(ar_is_read_no_snoop),
             .mst_reqs_o     ({slv_nonblock_req[i], slv_block_req[i]}),
             .mst_resps_i    ({slv_nonblock_resp[i], slv_block_resp[i]}),
             .mst_b_idx_o    (b_idx[i]),
